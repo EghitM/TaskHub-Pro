@@ -1679,6 +1679,7 @@ async function attachSnipToDraft(blob){
   }
   if($('#tm-title')){collectTaskForm();renderTaskModal();}
   toast('Snip attached ('+Math.round(blob.size/1024)+' KB)'+(snipArmed?' — still armed for the next one':''));
+  if(dataUrl.length>SNIP_SYNC_MAX)toast('This snip is over the sync size limit — it will stay on this device only',true);
 }
 function openLightbox(id){
   const sn=editingDraft&&(editingDraft.snips||[]).find(x=>x.id===id);
@@ -1728,6 +1729,9 @@ function openSettingsModal(){
 
 /* ================= DEVICE SYNC (GitHub Gist) ================= */
 const SYNC_FILE='taskhub-data.json';
+const SNIP_SYNC_MAX=900000; // dataURL chars ~ 670 KB image; larger stays local (gist API truncates 1 MB+ files)
+let pushedSnips=new Set();
+function eligibleSnips(){const m=new Map();S.tasks.forEach(t=>(t.snips||[]).forEach(sn=>{if(sn.data&&sn.data.length<=SNIP_SYNC_MAX)m.set(sn.id,sn);}));return m;}
 let sync={enabled:false,token:'',gistId:''};
 let syncApplying=false, dirtyTimer=null, localUpdated=0, lastPullAt=0, gistEtag=null;
 function markDirty(){
@@ -1746,7 +1750,10 @@ function syncPayload(){
       if(!t.eml&&!hasSnips)return t;
       const c={...t};
       if(t.eml){c.eml=null;c.emlLocal={name:t.eml.name,size:t.eml.size};}
-      if(hasSnips){c.snips=null;c.snipsLocal=t.snips.length;}
+      if(hasSnips){
+        // metadata only — pixel data travels as one gist file per snip, uploaded once
+        c.snips=t.snips.map(sn=>({id:sn.id,name:sn.name,type:sn.type,size:sn.size,synced:sn.data&&sn.data.length<=SNIP_SYNC_MAX?1:0}));
+      }
       return c;
     })});
 }
@@ -1763,15 +1770,20 @@ async function pushSync(){
   clearTimeout(dirtyTimer);dirtyTimer=null;
   try{
     setSyncStatus('push\u2026');
+    const cur=eligibleSnips();
     const files={};files[SYNC_FILE]={content:syncPayload()};
+    for(const [id,sn] of cur)if(!pushedSnips.has(id))files['snip-'+id+'.b64']={content:sn.data};
+    for(const id of pushedSnips)if(!cur.has(id))files['snip-'+id+'.b64']=null; // null = delete file from gist
     if(!sync.gistId){
-      const g=await gh('/gists','POST',{description:'TaskHub Pro sync data',public:false,files});
+      const createFiles={};for(const k in files)if(files[k])createFiles[k]=files[k];
+      const g=await gh('/gists','POST',{description:'TaskHub Pro sync data',public:false,files:createFiles});
       sync.gistId=g.id;persistSyncCfg();
       toast('Sync gist created: '+g.id);
       const gi=$('#sy-gist');if(gi)gi.value=g.id;
     }else{
       await gh('/gists/'+sync.gistId,'PATCH',{files});
     }
+    pushedSnips=new Set(cur.keys());saveMeta('pushedSnips',[...pushedSnips]);
     setSyncStatus('ok','ok');
   }catch(e){setSyncStatus('error','error');toast('Sync push failed: '+e.message,true);}
 }
@@ -1796,7 +1808,7 @@ async function pullSync(manual){
     const data=JSON.parse(content);
     if(!data||data.app!=='taskhub-pro'||!Array.isArray(data.tasks)){setSyncStatus('error','error');if(manual)toast('Gist content not recognised',true);return;}
     if((data.updated||0)>localUpdated){
-      applyRemote(data);
+      applyRemote(data,g.files||{});
       toast('Pulled changes from sync');
     }else if(localUpdated>(data.updated||0)){
       pushSync();return;
@@ -1804,17 +1816,35 @@ async function pullSync(manual){
     setSyncStatus('ok','ok');
   }catch(e){setSyncStatus('error','error');if(manual)toast('Sync pull failed: '+e.message,true);}
 }
-function applyRemote(data){
+function applyRemote(data,gfiles){
   syncApplying=true;
   try{
     const localEml=new Map(S.tasks.filter(t=>t.eml).map(t=>[t.id,t.eml]));
-    const localSnips=new Map(S.tasks.filter(t=>t.snips&&t.snips.length).map(t=>[t.id,t.snips]));
+    const localSnipsByTask=new Map(S.tasks.filter(t=>t.snips&&t.snips.length).map(t=>[t.id,t.snips]));
+    const localSnipData=new Map();
+    S.tasks.forEach(t=>(t.snips||[]).forEach(sn=>{if(sn.data)localSnipData.set(sn.id,sn.data);}));
     S.projects=data.projects||[];
     S.tasks=(data.tasks||[]).map(t=>{
-      if(!t.eml&&t.emlLocal&&localEml.has(t.id))t.eml=localEml.get(t.id);
-      if((!t.snips||!t.snips.length)&&t.snipsLocal&&localSnips.has(t.id))t.snips=localSnips.get(t.id);
+      if(t.eml===undefined&&localEml.has(t.id))t.eml=localEml.get(t.id);
+      else if(!t.eml&&t.emlLocal&&localEml.has(t.id))t.eml=localEml.get(t.id);
+      if(t.snips===undefined||t.snips===null){
+        // sender never knew about snips (older device/format) — keep ours
+        if(t.snipsLocal&&localSnipsByTask.has(t.id))t.snips=localSnipsByTask.get(t.id);
+        else if(localSnipsByTask.has(t.id))t.snips=localSnipsByTask.get(t.id);
+      }else if(t.snips.length){
+        t.snips.forEach(sn=>{
+          if(sn.data)return;
+          if(localSnipData.has(sn.id)){sn.data=localSnipData.get(sn.id);return;}
+          if(gfiles){
+            const f=gfiles['snip-'+sn.id+'.b64'];
+            if(f&&f.content&&!f.truncated){sn.data=f.content;pushedSnips.add(sn.id);}
+          }
+        });
+        t.snips=t.snips.filter(sn=>sn.data); // drop refs we couldn't resolve (large local-only snips from another device)
+      }
       return t;
     });
+    saveMeta('pushedSnips',[...pushedSnips]);
     if(data.counters&&typeof data.counters.t==='number')counters=data.counters;
     idbClear('projects');idbClear('tasks');
     S.projects.forEach(p=>idbPut('projects',p));
@@ -1831,7 +1861,7 @@ function openSyncModal(){
   openModal(`<div class="modal narrow">
     <div class="modal-head"><span class="hdr">Device Sync</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
     <div class="modal-body">
-      <div class="syncNote">Syncs projects and tasks between devices through a <b>private GitHub gist</b>. Every change pushes after a short delay; opening or refocusing the app pulls. Newest change wins. Attached .eml files stay on the device they were dropped on.<br><br>Create a <b>fine-grained personal access token</b> with only the <b>Gists</b> read/write permission (github.com &rarr; Settings &rarr; Developer settings). The token is stored in this browser only.</div>
+      <div class="syncNote">Syncs projects and tasks between devices through a <b>private GitHub gist</b>. Every change pushes after a short delay; opening or refocusing the app pulls. Newest change wins. Snips sync between devices (each up to ~700 KB); attached .eml files stay on the device they were dropped on.<br><br>Create a <b>fine-grained personal access token</b> with only the <b>Gists</b> read/write permission (github.com &rarr; Settings &rarr; Developer settings). The token is stored in this browser only.</div>
       <div class="frm">
         <div class="fld full"><label>GitHub Token</label><input id="sy-token" type="password" value="${esc(sync.token)}" placeholder="github_pat_&hellip;" autocomplete="off"></div>
         <div class="fld full"><label>Gist ID (blank = create on first push)</label><input id="sy-gist" type="text" value="${esc(sync.gistId)}" placeholder="e.g. 4f2a9c&hellip; — paste the same ID on your other devices"></div>
@@ -1870,6 +1900,7 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sync.enabled&&sync.tok
   }
   if(m.sync)Object.assign(sync,m.sync);
   if(m.localUpdated)localUpdated=m.localUpdated;
+  if(Array.isArray(m.pushedSnips))pushedSnips=new Set(m.pushedSnips);
   if(m.prefs){
     if(['board','list','dashboard'].includes(m.prefs.view))S.view=m.prefs.view;
     if(m.prefs.selProject&&(m.prefs.selProject==='ALL'||m.prefs.selProject==='WEEK'||projById(m.prefs.selProject)))S.selProject=m.prefs.selProject;
