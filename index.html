@@ -1608,12 +1608,12 @@ function openSettingsModal(){
 /* ================= DEVICE SYNC (GitHub Gist) ================= */
 const SYNC_FILE='taskhub-data.json';
 let sync={enabled:false,token:'',gistId:''};
-let syncApplying=false, dirtyTimer=null, localUpdated=0, lastPullAt=0;
+let syncApplying=false, dirtyTimer=null, localUpdated=0, lastPullAt=0, gistEtag=null;
 function markDirty(){
   if(syncApplying)return;
   localUpdated=Date.now();saveMeta('localUpdated',localUpdated);
   if(!sync.enabled||!sync.token)return;
-  clearTimeout(dirtyTimer);dirtyTimer=setTimeout(pushSync,2500);
+  clearTimeout(dirtyTimer);dirtyTimer=setTimeout(pushSync,800);
 }
 function persistSyncCfg(){saveMeta('sync',{enabled:sync.enabled,token:sync.token,gistId:sync.gistId});}
 function setSyncStatus(st,cls){const el=$('#syncStat');if(el){el.textContent=st?'SYNC '+st.toUpperCase():'';el.className=cls||'';}}
@@ -1653,11 +1653,17 @@ async function pushSync(){
 async function pullSync(manual){
   if(!sync.enabled||!sync.token)return;
   if(!sync.gistId){if(manual)toast('No gist yet — push once to create it',true);return;}
-  if(!manual&&Date.now()-lastPullAt<15000)return; // don't hammer on rapid focus flips
+  if(!manual&&Date.now()-lastPullAt<4000)return; // coalesce focus + poll triggers
   lastPullAt=Date.now();
   try{
     setSyncStatus('pull\u2026');
-    const g=await gh('/gists/'+sync.gistId);
+    const headers={'Authorization':'Bearer '+sync.token,'Accept':'application/vnd.github+json'};
+    if(gistEtag&&!manual)headers['If-None-Match']=gistEtag; // 304s are free against the rate limit
+    const r=await fetch('https://api.github.com/gists/'+sync.gistId,{headers});
+    if(r.status===304){setSyncStatus('ok','ok');return;}
+    if(!r.ok)throw new Error('GitHub '+r.status+(r.status===401?' — check token':r.status===404?' — gist not found':r.status===403?' — token lacks gist permission or rate limited':''));
+    gistEtag=r.headers.get('etag');
+    const g=await r.json();
     const f=g.files&&g.files[SYNC_FILE];
     if(!f){setSyncStatus('ok','ok');return;}
     let content=f.content;
@@ -1721,6 +1727,7 @@ function readSyncForm(){
 }
 window.addEventListener('focus',()=>pullSync(false));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pullSync(false);});
+setInterval(()=>{if(document.visibilityState==='visible'&&sync.enabled&&sync.token&&sync.gistId)pullSync(false);},10000);
 
 /* ================= INIT ================= */
 (async function init(){
