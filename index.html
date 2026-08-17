@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskHub Pro</title>
+<style>
+/* ============ FONTS ============ */
+@font-face{font-family:'Rajdhani';src:local('Rajdhani SemiBold'),local('Rajdhani-SemiBold'),local('Rajdhani');font-weight:600;font-display:swap}
+@font-face{font-family:'Rajdhani';src:local('Rajdhani Medium'),local('Rajdhani-Medium'),local('Rajdhani');font-weight:500;font-display:swap}
+@font-face{font-family:'Rajdhani';src:local('Rajdhani Bold'),local('Rajdhani-Bold'),local('Rajdhani');font-weight:700;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:local('JetBrains Mono'),local('JetBrainsMono-Regular'),local('JetBrains Mono Regular');font-display:swap}
+
+/* ============ TOKENS / RESET ============ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d0d; --panel:#161616; --panel2:#1b1b1b; --panel3:#202020;
+  --border:#2a2a2a; --border2:#333;
+  --accent:#f97316; --accent-dim:#f9731633; --accent-text:#fdba74;
+  --text:#e8e8e8; --dim:#8f8f8f; --dim2:#666;
+  --red:#ef4444; --green:#22c55e; --blue:#60a5fa; --purple:#a78bfa; --yellow:#eab308; --grey:#9ca3af;
+  --font-ui:'Rajdhani','Bahnschrift','Arial Narrow',Arial,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,'Cascadia Mono','SF Mono',Consolas,Menlo,monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size:14px;overflow:hidden}
+.mono{font-family:var(--font-mono)}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select,textarea{font-family:var(--font-mono);font-size:12px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:5px 8px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-dim)}
+select{cursor:pointer}
+::placeholder{color:var(--dim2)}
+input[type=date]{color-scheme:dark}
+h1,h2,h3,.hdr{font-family:var(--font-ui);text-transform:uppercase;letter-spacing:.08em}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#444}
+
+/* ============ SHELL ============ */
+#app{display:flex;flex-direction:column;height:100vh}
+#idbBanner{display:none;background:#3b1212;border-bottom:1px solid var(--red);color:#fca5a5;padding:6px 14px;font-size:12px;font-family:var(--font-mono)}
+#idbBanner.show{display:block}
+#mainRow{display:flex;flex:1;min-height:0}
+
+/* ============ SIDEBAR ============ */
+#sidebar{width:236px;min-width:236px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width .15s,min-width .15s;overflow:hidden}
+#sidebar.collapsed{width:40px;min-width:40px}
+#sidebar.collapsed .sb-body,#sidebar.collapsed .sb-title{display:none}
+.sb-head{display:flex;align-items:center;justify-content:space-between;padding:10px 10px 10px 14px;border-bottom:1px solid var(--border)}
+.sb-title{font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:13px;color:var(--accent)}
+.sb-collapse{color:var(--dim);font-size:14px;padding:2px 6px;border-radius:4px}
+.sb-collapse:hover{color:var(--text);background:var(--panel3)}
+.sb-body{flex:1;overflow-y:auto;padding:8px 0}
+.sb-sect{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim2);padding:10px 14px 4px;font-weight:600}
+.sb-node{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 14px;font-size:13px;font-weight:600;color:var(--dim);border-left:2px solid transparent}
+.sb-node:hover{color:var(--text);background:var(--panel2)}
+.sb-node.active{color:var(--text);background:var(--panel3);border-left-color:var(--accent)}
+.sb-node .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-node .cnt{font-family:var(--font-mono);font-size:10px;color:var(--dim2);background:var(--panel3);border:1px solid var(--border);border-radius:4px;padding:1px 5px;min-width:20px;text-align:center}
+.sb-node.active .cnt{color:var(--accent-text);border-color:var(--accent);background:var(--accent-dim)}
+.sb-node .jn{font-family:var(--font-mono);font-size:10px;color:var(--dim2)}
+.sb-foot{border-top:1px solid var(--border);padding:8px}
+.sb-add{width:100%;padding:6px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);border:1px dashed var(--border2);border-radius:4px}
+.sb-add:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ============ MAIN / TOOLBAR ============ */
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#toolbar{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.tb-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#search{width:220px}
+.tb-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tb-filters select{max-width:130px}
+.chk{display:flex;align-items:center;gap:5px;font-size:11px;font-family:var(--font-mono);color:var(--dim);cursor:pointer;user-select:none;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel2)}
+.chk input{accent-color:var(--accent);cursor:pointer;margin:0;width:12px;height:12px}
+.chk.on{border-color:var(--accent);color:var(--accent-text)}
+#quickAdd{flex:1;min-width:240px}
+.btn{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;border:1px solid var(--border2);border-radius:4px;background:var(--panel2);color:var(--dim);white-space:nowrap}
+.btn:hover{color:var(--text);border-color:#484848}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#0d0d0d}
+.btn.accent:hover{background:#fb8c3a;color:#0d0d0d}
+.btn.danger{color:var(--red);border-color:#5b2020}
+.btn.danger:hover{background:#2a1212;border-color:var(--red)}
+.btn.sm{font-size:10px;padding:4px 8px}
+.seg{display:flex;border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+.seg button{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;color:var(--dim);border-right:1px solid var(--border2)}
+.seg button:last-child{border-right:none}
+.seg button:hover{color:var(--text)}
+.seg button.active{background:var(--accent);color:#0d0d0d}
+.tb-gap{flex:1}
+
+/* ============ VIEW ROOT ============ */
+#viewRoot{flex:1;overflow:auto;padding:12px;min-height:0}
+
+/* ============ CHIPS ============ */
+.chip{display:inline-block;font-family:var(--font-mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:4px;border:1px solid transparent;white-space:nowrap}
+.chip.p-Critical{background:#ef444422;color:#fca5a5;border-color:#ef444455}
+.chip.p-High{background:#f9731622;color:#fdba74;border-color:#f9731655}
+.chip.p-Medium{background:#eab30818;color:#fde047;border-color:#eab30844}
+.chip.p-Low{background:#6b728022;color:#b6bcc6;border-color:#6b728055}
+.chip.s-Backlog{background:#6b728022;color:#9ca3af;border-color:#6b728044}
+.chip.s-ToDo{background:#60a5fa1e;color:#93c5fd;border-color:#60a5fa44}
+.chip.s-InProgress{background:#f9731622;color:#fdba74;border-color:#f9731655}
+.chip.s-Blocked{background:#ef444422;color:#fca5a5;border-color:#ef444455}
+.chip.s-Waiting{background:#a78bfa1e;color:#c4b5fd;border-color:#a78bfa44}
+.chip.s-Done{background:#22c55e1c;color:#86efac;border-color:#22c55e44}
+.chip.disc{background:var(--panel3);color:var(--dim);border-color:var(--border2)}
+.chip.rec{background:#0e2a3a;color:#7dd3fc;border-color:#0ea5e955}
+
+.due{font-family:var(--font-mono);font-size:10px;color:var(--dim)}
+.due.warn{color:var(--accent-text)}
+.due.over{color:#fca5a5}
+
+/* ============ BOARD ============ */
+#board{display:flex;gap:10px;height:100%;min-height:0}
+.col{flex:1;min-width:198px;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:4px;min-height:0}
+.col-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border)}
+.col-head .hdr{font-size:11px;font-weight:700;letter-spacing:.12em}
+.col-head .n{font-family:var(--font-mono);font-size:10px;color:var(--dim2)}
+.col-body{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+.col.dragover{border-color:var(--accent);background:#1a140e}
+.card{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:8px;cursor:grab;user-select:none}
+.card:hover{border-color:var(--border2)}
+.card.dragging{opacity:.4}
+.card .top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.card .id{font-family:var(--font-mono);font-size:9px;color:var(--dim2)}
+.card .jn{font-family:var(--font-mono);font-size:9px;color:var(--accent-text);margin-left:auto}
+.card .ttl{font-size:13px;font-weight:600;line-height:1.25;margin-bottom:6px;cursor:pointer}
+.card .ttl:hover{color:var(--accent-text)}
+.card .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.card .ck{font-family:var(--font-mono);font-size:9px;color:var(--dim)}
+.card .ck.full{color:var(--green)}
+.card .breason{margin-top:5px;font-family:var(--font-mono);font-size:9px;color:#fca5a5;background:#2a121233;border:1px solid #ef444433;border-radius:4px;padding:3px 5px}
+
+/* ============ LIST ============ */
+#listWrap{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:auto;max-height:100%}
+table{border-collapse:collapse;width:100%;min-width:1080px}
+th{position:sticky;top:0;z-index:2;background:var(--panel3);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);text-align:left;padding:7px 8px;border-bottom:1px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none}
+th.nosort{cursor:default}
+th .arr{color:var(--accent);font-size:9px}
+td{padding:5px 8px;border-bottom:1px solid #1f1f1f;font-size:12px;vertical-align:middle}
+tr:hover td{background:#191919}
+tr.sel td{background:#20170f}
+td .tid{font-family:var(--font-mono);font-size:10px;color:var(--dim2)}
+td .tttl{font-weight:600;cursor:pointer}
+td .tttl:hover{color:var(--accent-text)}
+td select{font-size:10px;padding:3px 4px}
+td input[type=date]{font-size:10px;padding:3px 4px}
+td input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:pointer}
+td .jn{font-family:var(--font-mono);font-size:10px;color:var(--accent-text)}
+td .as{font-family:var(--font-mono);font-size:10px;color:var(--dim)}
+td .ckl{font-family:var(--font-mono);font-size:10px;color:var(--dim)}
+.inlineEdit{width:100%;font-size:12px}
+#bulkBar{display:flex;align-items:center;gap:8px;background:var(--panel3);border:1px solid var(--accent);border-radius:4px;padding:6px 10px;margin-bottom:10px}
+#bulkBar .n{font-family:var(--font-mono);font-size:11px;color:var(--accent-text)}
+
+/* ============ DASHBOARD ============ */
+#dash{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;align-content:start}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:12px}
+.panel h3{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--dim);margin-bottom:10px}
+.span12{grid-column:span 12}.span6{grid-column:span 6}.span4{grid-column:span 4}
+.statRow{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;min-width:110px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:10px;border-top:2px solid var(--border2)}
+.stat .v{font-family:var(--font-mono);font-size:24px;font-weight:400}
+.stat .l{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:2px}
+.stat.c-grey{border-top-color:var(--grey)}.stat.c-blue{border-top-color:var(--blue)}.stat.c-orange{border-top-color:var(--accent)}.stat.c-red{border-top-color:var(--red)}.stat.c-purple{border-top-color:var(--purple)}.stat.c-green{border-top-color:var(--green)}
+.mini{width:100%;border-collapse:collapse}
+.mini td{padding:4px 6px;font-size:11px;border-bottom:1px solid #1e1e1e}
+.mini td:first-child{font-family:var(--font-mono);font-size:10px;color:var(--dim2);width:70px}
+.barRow{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.barRow .lbl{width:190px;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.barRow .lbl .jn{font-family:var(--font-mono);font-size:9px;color:var(--dim2);display:block}
+.barRow .track{flex:1;height:14px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;overflow:hidden;display:flex}
+.barRow .fill{height:100%}
+.barRow .n{font-family:var(--font-mono);font-size:10px;color:var(--dim);width:32px;text-align:right}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.legend span{font-family:var(--font-mono);font-size:9px;color:var(--dim);display:flex;align-items:center;gap:4px}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* ============ EMPTY STATES ============ */
+.empty{border:1px dashed var(--border2);border-radius:4px;padding:34px 20px;text-align:center;color:var(--dim2)}
+.empty .big{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.empty .hint{font-family:var(--font-mono);font-size:11px}
+.empty .hint b{color:var(--accent-text);font-weight:400}
+
+/* ============ MODALS ============ */
+#modalRoot{position:fixed;inset:0;z-index:50;display:none}
+#modalRoot.open{display:flex;align-items:flex-start;justify-content:center;background:#000000b3;overflow-y:auto;padding:5vh 16px}
+.modal{background:var(--panel);border:1px solid var(--border2);border-radius:4px;width:100%;max-width:640px;margin-bottom:5vh}
+.modal.narrow{max-width:440px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.modal-head .hdr{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--accent)}
+.modal-x{color:var(--dim);font-size:16px;padding:2px 8px;border-radius:4px}
+.modal-x:hover{color:var(--text);background:var(--panel3)}
+.modal-body{padding:16px}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border)}
+.modal-foot .spacer{flex:1}
+.frm{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.frm .full{grid-column:span 2}
+.fld label{display:block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.fld input,.fld select,.fld textarea{width:100%}
+.fld textarea{resize:vertical;min-height:56px}
+.subhdr{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:16px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.ckItem{display:flex;align-items:center;gap:8px;padding:4px 0}
+.ckItem input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:pointer}
+.ckItem .txt{flex:1;font-family:var(--font-mono);font-size:12px}
+.ckItem .txt.done{color:var(--dim2);text-decoration:line-through}
+.ckItem .rm{color:var(--dim2);font-size:12px;padding:0 6px;border-radius:4px}
+.ckItem .rm:hover{color:var(--red)}
+.ckAddRow{display:flex;gap:6px;margin-top:6px}
+.ckAddRow input{flex:1}
+.logList{max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;background:var(--panel2);padding:6px 8px}
+.logItem{font-family:var(--font-mono);font-size:10px;padding:3px 0;border-bottom:1px solid #1f1f1f;color:var(--dim)}
+.logItem:last-child{border-bottom:none}
+.logItem .t{color:var(--dim2)}
+.logItem .manual{color:var(--text)}
+.warnTxt{font-family:var(--font-mono);font-size:11px;color:#fca5a5;background:#2a121240;border:1px solid #ef444440;border-radius:4px;padding:8px 10px;margin-bottom:12px}
+.modalMsg{font-size:13px;line-height:1.5;color:var(--text)}
+
+/* ============ FOOTER / DEV ============ */
+#footer{display:flex;align-items:center;gap:12px;background:var(--panel);border-top:1px solid var(--border);padding:4px 12px;font-family:var(--font-mono);font-size:10px;color:var(--dim2)}
+#footer .gap{flex:1}
+#devToggle{font-family:var(--font-mono);font-size:9px;letter-spacing:.15em;color:var(--dim2);padding:2px 6px;border:1px solid transparent;border-radius:4px}
+#devToggle:hover,#devToggle.on{color:var(--accent);border-color:var(--border2)}
+#devPanel{display:none;gap:6px;align-items:center}
+#devPanel.show{display:flex}
+
+/* ============ MOBILE ============ */
+#navBtn{display:none}
+.sb-backdrop{display:none}
+@media (max-width:820px){
+  #navBtn{display:inline-block}
+  .sb-collapse{display:none}
+  #sidebar{position:fixed;left:0;top:0;bottom:0;z-index:45;transform:translateX(-105%);transition:transform .2s;width:min(82vw,300px);min-width:0}
+  #sidebar.mobile-open{transform:none}
+  #sidebar.collapsed{width:min(82vw,300px);min-width:0}
+  #sidebar.collapsed .sb-body{display:block}
+  #sidebar.collapsed .sb-title{display:inline}
+  #sidebar.mobile-open+.sb-backdrop{display:block;position:fixed;inset:0;background:#000000a6;z-index:44}
+  .tb-filters{flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .tb-filters select{flex:0 0 auto}
+  #search{flex:1;width:auto;min-width:130px}
+  #quickAdd{flex:1 1 100%;min-width:0}
+  .btn{padding:8px 10px}
+  input,select{min-height:34px}
+  #viewRoot{padding:8px}
+  #board{overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}
+  .col{min-width:82vw;scroll-snap-align:start}
+  #dash{display:block}
+  #dash .panel{margin-bottom:12px}
+  .barRow .lbl{width:110px}
+  #modalRoot.open{padding:10px 8px}
+  .modal{max-width:100%}
+  .frm{grid-template-columns:1fr}
+  .frm .full{grid-column:span 1}
+  #footer{flex-wrap:wrap;row-gap:2px}
+}
+
+/* ============ SYNC ============ */
+#syncStat{font-family:var(--font-mono)}
+#syncStat.ok{color:var(--green)}
+#syncStat.error{color:var(--red)}
+.syncNote{font-family:var(--font-mono);font-size:10px;color:var(--dim);line-height:1.5;background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:12px}
+.syncNote b{color:var(--accent-text);font-weight:400}
+
+/* ============ EMAIL DROP ============ */
+#dropOverlay{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:#000000cc;pointer-events:none}
+#dropOverlay.show{display:flex}
+#dropOverlay .box{border:2px dashed var(--accent);border-radius:4px;background:#1a140ecc;padding:36px 60px;text-align:center}
+#dropOverlay .big{font-family:var(--font-ui);font-size:20px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent)}
+#dropOverlay .sub{font-family:var(--font-mono);font-size:11px;color:var(--dim);margin-top:8px}
+.mailchip{display:inline-block;font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:4px;background:#0e2a3a;color:#7dd3fc;border:1px solid #0ea5e955;text-decoration:none;cursor:pointer}
+.mailchip:hover{border-color:#7dd3fc}
+.emlBox{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-family:var(--font-mono);font-size:11px}
+.emlBox .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#7dd3fc}
+.emlBox .sz{color:var(--dim2);font-size:10px}
+
+/* ============ TOASTS ============ */
+#toasts{position:fixed;bottom:40px;right:16px;z-index:60;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--panel3);border:1px solid var(--border2);border-left:2px solid var(--accent);border-radius:4px;padding:8px 14px;font-family:var(--font-mono);font-size:11px;color:var(--text);animation:tin .15s ease-out;max-width:340px}
+.toast.err{border-left-color:var(--red)}
+@keyframes tin{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="idbBanner">STORAGE UNAVAILABLE — IndexedDB could not be opened. Running in memory only; changes will be lost on reload. Use Backup regularly or check browser storage settings.</div>
+  <div id="mainRow">
+    <aside id="sidebar">
+      <div class="sb-head">
+        <span class="sb-title">TaskHub Pro</span>
+        <button class="sb-collapse" data-action="toggle-sidebar" title="Collapse sidebar">&#9668;</button>
+      </div>
+      <div class="sb-body" id="sbBody"></div>
+      <div class="sb-foot sb-body-x">
+        <button class="sb-add" data-action="new-project">+ New Project</button>
+      </div>
+    </aside>
+    <div class="sb-backdrop" data-action="close-mobile-nav"></div>
+    <div id="main">
+      <div id="toolbar">
+        <div class="tb-row">
+          <button class="btn sm" id="navBtn" data-action="toggle-mobile-nav" title="Projects">☰</button>
+          <input id="search" type="search" placeholder='Search… ( / )' data-persist="0">
+          <div class="tb-filters" id="filterRow"></div>
+          <span class="tb-gap"></span>
+          <div class="seg" id="viewSeg">
+            <button data-action="set-view" data-view="board">Board</button>
+            <button data-action="set-view" data-view="list">List</button>
+            <button data-action="set-view" data-view="dashboard">Dashboard</button>
+          </div>
+        </div>
+        <div class="tb-row">
+          <input id="quickAdd" type="text" placeholder="Quick add — &lt;title&gt; !&lt;priority&gt; #&lt;jobno&gt; @&lt;assignee&gt; due:&lt;dd/mm&gt;  (Enter)">
+          <button class="btn accent" data-action="new-task">+ Task</button>
+          <button class="btn sm" data-action="settings" title="Exports, backup, import and sync">⚙ Settings</button>
+        </div>
+      </div>
+      <div id="viewRoot"></div>
+    </div>
+  </div>
+  <div id="footer">
+    <span>TASKHUB PRO v1.0</span>
+    <span id="footStats"></span>
+    <span id="syncStat"></span>
+    <span class="gap"></span>
+    <span id="devPanel">
+      <button class="btn sm" data-action="seed">Seed Test Data</button>
+      <button class="btn sm danger" data-action="clear-seed">Clear Seed</button>
+    </span>
+    <button id="devToggle" data-action="toggle-dev">DEV</button>
+  </div>
+</div>
+<div id="modalRoot"></div>
+<div id="toasts"></div>
+<div id="dropOverlay"><div class="box">
+  <div class="big">Drop Email</div>
+  <div class="sub">.eml file or message dragged from Outlook on the web<br>Drop on a card to attach to that task · anywhere else creates a new task</div>
+</div></div>
+<script>
+'use strict';
+/* ================= CONSTANTS ================= */
+const STATUSES=['Backlog','To Do','In Progress','Blocked','Waiting','Done'];
+const PRIORITIES=['Critical','High','Medium','Low'];
+const DISCIPLINES=['Electrical','Comms','Fire','Security','Dry Fire','General'];
+const CATEGORIES=['RFI','Procurement','Site','Design','QA','Delivery','Admin'];
+const PSTATUSES=['Tender','Awarded','In Progress','Practical Completion','Defects','Closed'];
+const RECUR=['','weekly','fortnightly','monthly'];
+const statusKey=s=>'s-'+s.replace(/ /g,'');
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ================= STATE ================= */
+const S={
+  projects:[], tasks:[],
+  view:'board', selProject:'ALL', search:'',
+  filters:{project:'',discipline:'',category:'',priority:'',status:'',assignee:'',overdue:false},
+  sort:{key:'due',dir:1},
+  selected:new Set(),
+  sidebarCollapsed:false, dev:false
+};
+let counters={p:0,t:0};
+let undoAction=null; // {label, fn}
+
+/* ================= DATE / FORMAT HELPERS ================= */
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const nowISO=()=>new Date().toISOString();
+function fmtDate(iso){if(!iso)return'';const p=iso.slice(0,10).split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso;}
+function fmtDT(iso){if(!iso)return'';const d=new Date(iso);if(isNaN(d))return iso;const p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function parseDMY(s){ // "22/07" or "22/07/2026" or "22/7/26" -> ISO
+  const m=String(s).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/); if(!m)return null;
+  let [,d,mo,y]=m; d=+d; mo=+mo;
+  y=y? (y.length===2?2000+ +y : +y) : new Date().getFullYear();
+  if(mo<1||mo>12||d<1||d>31)return null;
+  return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function daysUntil(iso){if(!iso)return null;const a=new Date(iso+'T00:00:00'),b=new Date(todayISO()+'T00:00:00');return Math.round((a-b)/86400000);}
+function fmtMoney(n){const v=Number(n||0);return '$'+v.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function dueClass(t){if(!t.due||t.status==='Done')return'';const d=daysUntil(t.due);if(d<0)return'over';if(d<=3)return'warn';return'';}
+function weekBounds(){ // Mon..Sun of current week
+  const now=new Date(todayISO()+'T00:00:00');const dow=(now.getDay()+6)%7;
+  const mon=new Date(now); mon.setDate(now.getDate()-dow);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return [iso(mon),iso(sun)];
+}
+
+/* ================= INDEXEDDB ================= */
+let db=null, memMode=false;
+function openDB(){
+  return new Promise(res=>{
+    if(!('indexedDB' in window)){memMode=true;return res();}
+    let req;
+    try{req=indexedDB.open('taskhub-pro',1);}catch(e){memMode=true;return res();}
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      // v1 schema. Future migrations: switch on e.oldVersion and transform stores here.
+      if(!d.objectStoreNames.contains('projects'))d.createObjectStore('projects',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('tasks'))d.createObjectStore('tasks',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'k'});
+    };
+    req.onsuccess=e=>{db=e.target.result;db.onerror=()=>banner();res();};
+    req.onerror=()=>{memMode=true;banner();res();};
+    req.onblocked=()=>{memMode=true;banner();res();};
+  });
+}
+function banner(){$('#idbBanner').classList.add('show');}
+function idbAll(store){
+  return new Promise(res=>{
+    if(memMode||!db)return res([]);
+    try{
+      const r=db.transaction(store).objectStore(store).getAll();
+      r.onsuccess=()=>res(r.result||[]); r.onerror=()=>res([]);
+    }catch(e){res([]);}
+  });
+}
+function idbPut(store,val){if(memMode||!db)return;try{db.transaction(store,'readwrite').objectStore(store).put(val);}catch(e){banner();}}
+function idbDel(store,key){if(!memMode&&db){try{db.transaction(store,'readwrite').objectStore(store).delete(key);}catch(e){banner();}}if(store!=='meta')markDirty();}
+function idbClear(store){if(memMode||!db)return;try{db.transaction(store,'readwrite').objectStore(store).clear();}catch(e){banner();}}
+const saveTask=t=>{idbPut('tasks',t);markDirty();};
+const saveProject=p=>{idbPut('projects',p);markDirty();};
+const saveMeta=(k,v)=>idbPut('meta',{k,v});
+function persistCounters(){saveMeta('counters',counters);}
+function persistPrefs(){saveMeta('prefs',{view:S.view,selProject:S.selProject,sidebarCollapsed:S.sidebarCollapsed,sort:S.sort});}
+
+/* ================= IDS ================= */
+function nextPid(){counters.p++;persistCounters();return 'PRJ-'+String(counters.p).padStart(3,'0');}
+function nextTid(){counters.t++;persistCounters();return 'TSK-'+String(counters.t).padStart(4,'0');}
+const projById=id=>S.projects.find(p=>p.id===id)||null;
+const taskById=id=>S.tasks.find(t=>t.id===id)||null;
+const projLabel=id=>{const p=projById(id);return p?(p.jobNo||p.name):'—';};
+
+/* ================= ACTIVITY LOG / STATUS ================= */
+function addLog(t,text,manual){t.log=t.log||[];t.log.push({t:nowISO(),text,m:!!manual});}
+function applyStatus(t,st,reason){
+  const old=t.status; if(old===st)return;
+  t.status=st;
+  if(st==='Done'){t.completed=todayISO();}
+  else if(old==='Done'){t.completed=null;}
+  if(st==='Blocked'){t.blockedReason=reason||'';}
+  else if(old==='Blocked'){t.blockedReason='';}
+  addLog(t,`Status ${old} → ${st}`+(st==='Blocked'&&reason?` — ${reason}`:''));
+  saveTask(t);
+  if(st==='Done')maybeRecur(t);
+}
+function requestStatus(ids,st){ // handles Blocked-reason gate for one or many tasks
+  ids=ids.filter(id=>{const t=taskById(id);return t&&t.status!==st;});
+  if(!ids.length)return;
+  if(st==='Blocked'){
+    promptModal('Blocked reason','Why is this blocked? A reason is required.','e.g. Awaiting RFI response from consultant',reason=>{
+      if(!reason||!reason.trim()){toast('Blocked status needs a reason — not changed',true);render();return;}
+      ids.forEach(id=>applyStatus(taskById(id),st,reason.trim()));
+      render();
+    });
+  }else{
+    ids.forEach(id=>applyStatus(taskById(id),st));
+    render();
+  }
+}
+function maybeRecur(t){
+  if(!t.recurrence)return;
+  const base=t.due||todayISO();
+  const d=new Date(base+'T00:00:00');
+  if(t.recurrence==='weekly')d.setDate(d.getDate()+7);
+  else if(t.recurrence==='fortnightly')d.setDate(d.getDate()+14);
+  else if(t.recurrence==='monthly')d.setMonth(d.getMonth()+1);
+  const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const nt={...t, id:nextTid(), status:'To Do', due:iso, created:todayISO(), completed:null, blockedReason:'',
+    checklist:(t.checklist||[]).map(c=>({id:uid(),text:c.text,done:false})), log:[]};
+  addLog(nt,`Respawned from recurring task ${t.id} (${t.recurrence})`);
+  S.tasks.push(nt); saveTask(nt);
+  toast(`Recurring: ${nt.id} created, due ${fmtDate(iso)}`);
+}
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+/* ================= UNDO ================= */
+function pushUndo(label,fn){undoAction={label,fn};}
+function doUndo(){
+  if(!undoAction){toast('Nothing to undo');return;}
+  const a=undoAction; undoAction=null;
+  a.fn(); toast('Undone: '+a.label); render();
+}
+
+/* ================= CSV (RFC 4180) ================= */
+function csvField(v){
+  v=v==null?'':String(v);
+  if(/[",\r\n]/.test(v))v='"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+function toCSV(rows){return rows.map(r=>r.map(csvField).join(',')).join('\r\n')+'\r\n';}
+function parseCSV(text){
+  const rows=[];let row=[],field='',inQ=false,i=0;
+  if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;} else {inQ=false;i++;} }
+      else {field+=c;i++;}
+    }else{
+      if(c==='"'){inQ=true;i++;}
+      else if(c===','){row.push(field);field='';i++;}
+      else if(c==='\r'){ if(text[i+1]==='\n')i++; row.push(field);rows.push(row);row=[];field='';i++; }
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++;}
+      else {field+=c;i++;}
+    }
+  }
+  if(field!==''||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>!(r.length===1&&r[0]===''));
+}
+
+/* ================= FILE IO (File System Access API + fallback) ================= */
+async function saveFile(suggestedName,content,mime,desc,ext){
+  try{
+    if(window.showSaveFilePicker){
+      const h=await showSaveFilePicker({suggestedName,types:[{description:desc,accept:{[mime]:[ext]}}]});
+      const w=await h.createWritable(); await w.write(content); await w.close();
+      toast('Saved '+suggestedName); return;
+    }
+  }catch(e){ if(e&&e.name==='AbortError')return; }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download=suggestedName; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Downloaded '+suggestedName);
+}
+async function openFile(accept){
+  try{
+    if(window.showOpenFilePicker){
+      const [h]=await showOpenFilePicker({types:[{description:'File',accept}]});
+      const f=await h.getFile(); return await f.text();
+    }
+  }catch(e){ if(e&&e.name==='AbortError')return null; }
+  return new Promise(res=>{
+    const inp=document.createElement('input'); inp.type='file';
+    inp.accept=Object.values(accept).flat().join(',');
+    inp.onchange=()=>{const f=inp.files[0]; if(!f)return res(null); const r=new FileReader(); r.onload=()=>res(r.result); r.readAsText(f);};
+    inp.click();
+  });
+}
+
+/* ================= FILTER / SEARCH ================= */
+function fuzzy(hay,q){
+  hay=hay.toLowerCase();q=q.toLowerCase().trim(); if(!q)return true;
+  if(hay.includes(q))return true;
+  let i=0; for(const c of hay){if(c===q[i])i++; if(i===q.length)return true;}
+  return false;
+}
+function visibleTasks(){
+  let list=S.tasks.slice();
+  if(S.selProject==='WEEK'){
+    const [mon,sun]=weekBounds();
+    list=list.filter(t=>t.status!=='Done'&&t.due&&t.due<=sun);
+  }else if(S.selProject!=='ALL'){
+    list=list.filter(t=>t.project===S.selProject);
+  }
+  const f=S.filters;
+  if(f.project)list=list.filter(t=>t.project===f.project);
+  if(f.discipline)list=list.filter(t=>t.discipline===f.discipline);
+  if(f.category)list=list.filter(t=>t.category===f.category);
+  if(f.priority)list=list.filter(t=>t.priority===f.priority);
+  if(f.status)list=list.filter(t=>t.status===f.status);
+  if(f.assignee)list=list.filter(t=>(t.assignee||'')===f.assignee);
+  if(f.overdue)list=list.filter(t=>t.status!=='Done'&&t.due&&daysUntil(t.due)<0);
+  if(S.search)list=list.filter(t=>fuzzy(`${t.id} ${t.title} ${t.description||''}`,S.search));
+  return list;
+}
+function sortTasks(list){
+  const {key,dir}=S.sort;
+  const pr=p=>PRIORITIES.indexOf(p), st=s=>STATUSES.indexOf(s);
+  return list.slice().sort((a,b)=>{
+    let va,vb;
+    switch(key){
+      case 'id':va=a.id;vb=b.id;break;
+      case 'title':va=a.title.toLowerCase();vb=b.title.toLowerCase();break;
+      case 'project':va=projLabel(a.project);vb=projLabel(b.project);break;
+      case 'discipline':va=a.discipline;vb=b.discipline;break;
+      case 'category':va=a.category;vb=b.category;break;
+      case 'priority':va=pr(a.priority);vb=pr(b.priority);break;
+      case 'status':va=st(a.status);vb=st(b.status);break;
+      case 'assignee':va=(a.assignee||'').toLowerCase();vb=(b.assignee||'').toLowerCase();break;
+      case 'due':va=a.due||'9999';vb=b.due||'9999';break;
+      default:va=a.id;vb=b.id;
+    }
+    return (va<vb?-1:va>vb?1:0)*dir;
+  });
+}
+
+/* ================= QUICK ADD ================= */
+function quickAddParse(text){
+  let title=text;
+  const out={priority:'Medium',status:'To Do'};
+  title=title.replace(/!(critical|crit|high|medium|med|low)\b/i,(m,p)=>{
+    p=p.toLowerCase();
+    out.priority=p.startsWith('c')?'Critical':p.startsWith('h')?'High':p.startsWith('l')?'Low':'Medium';
+    return '';
+  });
+  title=title.replace(/@(\S+)/,(m,a)=>{out.assignee=a;return '';});
+  title=title.replace(/due:(\S+)/i,(m,d)=>{const iso=parseDMY(d);if(iso)out.due=iso;return '';});
+  title=title.replace(/#(\S+)/,(m,tag)=>{
+    const q=tag.toLowerCase();
+    const p=S.projects.find(x=>(x.jobNo||'').toLowerCase()===q)||
+            S.projects.find(x=>(x.jobNo||'').toLowerCase().includes(q))||
+            S.projects.find(x=>x.name.toLowerCase().replace(/\s+/g,'-').includes(q))||
+            S.projects.find(x=>x.name.toLowerCase().includes(q));
+    if(p)out.project=p.id;
+    return '';
+  });
+  out.title=title.replace(/\s+/g,' ').trim();
+  if(!out.project&&S.selProject!=='ALL'&&S.selProject!=='WEEK')out.project=S.selProject;
+  return out;
+}
+function quickAdd(text){
+  const p=quickAddParse(text);
+  if(!p.title){toast('Task needs a title',true);return;}
+  const t={id:nextTid(),project:p.project||'',title:p.title,description:'',
+    discipline:'General',category:'Admin',priority:p.priority,status:p.status,
+    assignee:p.assignee||'',due:p.due||'',created:todayISO(),completed:null,
+    blockedReason:'',recurrence:'',checklist:[],log:[]};
+  addLog(t,'Created (quick add)');
+  S.tasks.push(t);saveTask(t);render();
+  toast(`${t.id} added${t.project?' → '+projLabel(t.project):''}`);
+}
+
+/* ================= TOASTS ================= */
+function toast(msg,err){
+  const el=document.createElement('div');
+  el.className='toast'+(err?' err':''); el.textContent=msg;
+  $('#toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+/* ================= MODAL INFRASTRUCTURE ================= */
+function openModal(html){const r=$('#modalRoot');r.innerHTML=html;r.classList.add('open');}
+function closeModal(){const r=$('#modalRoot');r.classList.remove('open');r.innerHTML='';}
+let modalCb=null;
+function confirmModal(title,msg,buttons){ // buttons: [{label, cls, val}]
+  return new Promise(res=>{
+    modalCb=res;
+    openModal(`<div class="modal narrow">
+      <div class="modal-head"><span class="hdr">${esc(title)}</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
+      <div class="modal-body"><div class="modalMsg">${msg}</div></div>
+      <div class="modal-foot">
+        ${buttons.map(b=>`<button class="btn ${b.cls||''}" data-action="modal-choice" data-val="${esc(b.val)}">${esc(b.label)}</button>`).join('')}
+      </div></div>`);
+  });
+}
+function promptModal(title,msg,placeholder,cb){
+  modalCb=cb;
+  openModal(`<div class="modal narrow">
+    <div class="modal-head"><span class="hdr">${esc(title)}</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
+    <div class="modal-body">
+      <div class="modalMsg" style="margin-bottom:10px">${esc(msg)}</div>
+      <input id="promptInput" type="text" style="width:100%" placeholder="${esc(placeholder||'')}">
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-action="modal-cancel">Cancel</button>
+      <button class="btn accent" data-action="prompt-ok">OK</button>
+    </div></div>`);
+  setTimeout(()=>$('#promptInput')&&$('#promptInput').focus(),20);
+}
+
+/* ================= RENDER: SIDEBAR ================= */
+function renderSidebar(){
+  $('#sidebar').classList.toggle('collapsed',S.sidebarCollapsed);
+  const open=id=>S.tasks.filter(t=>t.project===id&&t.status!=='Done').length;
+  const allOpen=S.tasks.filter(t=>t.status!=='Done').length;
+  const [,sun]=weekBounds();
+  const weekN=S.tasks.filter(t=>t.status!=='Done'&&t.due&&t.due<=sun).length;
+  let h=`<div class="sb-sect">Views</div>
+    <button class="sb-node ${S.selProject==='ALL'?'active':''}" data-action="sel-project" data-id="ALL"><span class="nm">All Projects</span><span class="cnt">${allOpen}</span></button>
+    <button class="sb-node ${S.selProject==='WEEK'?'active':''}" data-action="sel-project" data-id="WEEK"><span class="nm">My Week</span><span class="cnt">${weekN}</span></button>
+    <div class="sb-sect">Projects</div>`;
+  if(!S.projects.length){
+    h+=`<div style="padding:10px 14px;font-family:var(--font-mono);font-size:10px;color:var(--dim2)">No projects yet.<br>Use + New Project below.</div>`;
+  }
+  for(const p of S.projects.slice().sort((a,b)=>(a.jobNo||a.name).localeCompare(b.jobNo||b.name))){
+    h+=`<button class="sb-node ${S.selProject===p.id?'active':''}" data-action="sel-project" data-id="${p.id}" data-ctx="project" title="${esc(p.name)} — double-click to edit">
+      <span class="nm">${esc(p.name)}<span class="jn"> ${esc(p.jobNo||'')}</span></span><span class="cnt">${open(p.id)}</span></button>`;
+  }
+  $('#sbBody').innerHTML=h;
+}
+
+/* ================= RENDER: TOOLBAR FILTERS ================= */
+function renderFilters(){
+  const f=S.filters;
+  const opt=(vals,cur,all)=>`<option value="">${all}</option>`+vals.map(v=>`<option ${v===cur?'selected':''} value="${esc(v)}">${esc(v)}</option>`).join('');
+  const assignees=[...new Set(S.tasks.map(t=>t.assignee).filter(Boolean))].sort();
+  $('#filterRow').innerHTML=`
+    <select data-filter="project">${'<option value="">Project</option>'+S.projects.map(p=>`<option ${p.id===f.project?'selected':''} value="${p.id}">${esc(p.jobNo||p.name)}</option>`).join('')}</select>
+    <select data-filter="discipline">${opt(DISCIPLINES,f.discipline,'Discipline')}</select>
+    <select data-filter="category">${opt(CATEGORIES,f.category,'Category')}</select>
+    <select data-filter="priority">${opt(PRIORITIES,f.priority,'Priority')}</select>
+    <select data-filter="status">${opt(STATUSES,f.status,'Status')}</select>
+    <select data-filter="assignee">${opt(assignees,f.assignee,'Assignee')}</select>
+    <label class="chk ${f.overdue?'on':''}"><input type="checkbox" data-filter="overdue" ${f.overdue?'checked':''}>OVERDUE</label>
+    <button class="btn sm" data-action="clear-filters" title="Clear all filters">✕</button>`;
+}
+
+/* ================= RENDER: BOARD ================= */
+function cardHTML(t){
+  const ck=t.checklist||[]; const done=ck.filter(c=>c.done).length;
+  return `<div class="card" draggable="true" data-card="${t.id}">
+    <div class="top"><span class="id">${t.id}</span>${t.recurrence?`<span class="chip rec">↻ ${t.recurrence}</span>`:''}<span class="jn">${esc(projLabel(t.project))}</span></div>
+    <div class="ttl" data-action="open-task" data-id="${t.id}">${esc(t.title)}</div>
+    <div class="meta">
+      <span class="chip p-${t.priority}">${t.priority}</span>
+      <span class="chip disc">${esc(t.discipline)}</span>
+      ${t.due?`<span class="due ${dueClass(t)}">${fmtDate(t.due)}</span>`:''}
+      ${ck.length?`<span class="ck ${done===ck.length?'full':''}">☑ ${done}/${ck.length}</span>`:''}
+      ${t.assignee?`<span class="ck">@${esc(t.assignee)}</span>`:''}
+      ${t.link?`<a class="mailchip" draggable="false" href="${esc(t.link)}" target="_blank" rel="noopener" title="Open linked email">\u2709</a>`:(t.eml?`<span class="mailchip" title="Email attached: ${esc(t.eml.name)}">\u2709</span>`:'')}
+    </div>
+    ${t.status==='Blocked'&&t.blockedReason?`<div class="breason" title="${esc(t.blockedReason)}">⛔ ${esc(t.blockedReason)}</div>`:''}
+  </div>`;
+}
+function renderBoard(list){
+  if(!S.tasks.length)return emptyState();
+  let h='<div id="board">';
+  for(const st of STATUSES){
+    const col=sortTasks(list.filter(t=>t.status===st));
+    h+=`<div class="col" data-col="${esc(st)}">
+      <div class="col-head"><span class="hdr">${esc(st)}</span><span class="n">${col.length}</span></div>
+      <div class="col-body" data-colbody="${esc(st)}">${col.map(cardHTML).join('')||'<div style="font-family:var(--font-mono);font-size:10px;color:var(--dim2);text-align:center;padding:12px 0">—</div>'}</div>
+    </div>`;
+  }
+  $('#viewRoot').innerHTML=h+'</div>';
+}
+
+/* ================= RENDER: LIST ================= */
+function renderList(list){
+  if(!S.tasks.length)return emptyState();
+  const sorted=sortTasks(list);
+  const arr=k=>S.sort.key===k?`<span class="arr">${S.sort.dir===1?'▲':'▼'}</span>`:'';
+  const selOpt=(vals,cur)=>vals.map(v=>`<option ${v===cur?'selected':''} value="${esc(v)}">${esc(v)}</option>`).join('');
+  let bulk='';
+  if(S.selected.size){
+    bulk=`<div id="bulkBar">
+      <span class="n">${S.selected.size} SELECTED</span>
+      <select data-bulk="status"><option value="">Set status…</option>${STATUSES.map(s=>`<option>${s}</option>`).join('')}</select>
+      <select data-bulk="priority"><option value="">Set priority…</option>${PRIORITIES.map(s=>`<option>${s}</option>`).join('')}</select>
+      <select data-bulk="project"><option value="">Move to project…</option><option value="__none__">(No project)</option>${S.projects.map(p=>`<option value="${p.id}">${esc(p.jobNo||p.name)}</option>`).join('')}</select>
+      <button class="btn sm danger" data-action="bulk-delete">Delete</button>
+      <span class="tb-gap"></span>
+      <button class="btn sm" data-action="bulk-clear">Clear selection</button>
+    </div>`;
+  }
+  const allChecked=sorted.length&&sorted.every(t=>S.selected.has(t.id));
+  let rows='';
+  for(const t of sorted){
+    const ck=t.checklist||[];const cdone=ck.filter(c=>c.done).length;
+    rows+=`<tr class="${S.selected.has(t.id)?'sel':''}" data-row="${t.id}">
+      <td><input type="checkbox" data-selrow="${t.id}" ${S.selected.has(t.id)?'checked':''}></td>
+      <td><span class="tid">${t.id}</span></td>
+      <td><span class="tttl" data-action="open-task" data-id="${t.id}" data-editable="title" title="Click to open · double-click to rename">${esc(t.title)}</span>
+        ${t.status==='Blocked'&&t.blockedReason?`<span class="chip s-Blocked" title="${esc(t.blockedReason)}">⛔</span>`:''}
+        ${t.recurrence?`<span class="chip rec" title="Recurring ${t.recurrence}">↻</span>`:''}
+        ${t.link?`<a class="mailchip" href="${esc(t.link)}" target="_blank" rel="noopener" title="Open linked email">\u2709</a>`:(t.eml?`<span class="mailchip" title="Email attached: ${esc(t.eml.name)}">\u2709</span>`:'')}</td>
+      <td><span class="jn">${esc(projLabel(t.project))}</span></td>
+      <td><span class="chip disc">${esc(t.discipline)}</span></td>
+      <td style="font-size:11px;color:var(--dim)">${esc(t.category)}</td>
+      <td><select data-inline="priority" data-id="${t.id}">${selOpt(PRIORITIES,t.priority)}</select></td>
+      <td><select data-inline="status" data-id="${t.id}">${selOpt(STATUSES,t.status)}</select></td>
+      <td><span class="as">${esc(t.assignee||'—')}</span></td>
+      <td><input type="date" data-inline="due" data-id="${t.id}" value="${t.due||''}" class="${dueClass(t)?'':''}" style="${dueClass(t)==='over'?'border-color:var(--red);color:#fca5a5':dueClass(t)==='warn'?'border-color:var(--accent);color:var(--accent-text)':''}"></td>
+      <td><span class="ckl">${ck.length?cdone+'/'+ck.length:'—'}</span></td>
+    </tr>`;
+  }
+  $('#viewRoot').innerHTML=`${bulk}<div id="listWrap"><table>
+    <thead><tr>
+      <th class="nosort" style="width:28px"><input type="checkbox" data-action="sel-all" ${allChecked?'checked':''}></th>
+      <th data-sort="id">ID ${arr('id')}</th>
+      <th data-sort="title">Title ${arr('title')}</th>
+      <th data-sort="project">Project ${arr('project')}</th>
+      <th data-sort="discipline">Disc ${arr('discipline')}</th>
+      <th data-sort="category">Cat ${arr('category')}</th>
+      <th data-sort="priority">Priority ${arr('priority')}</th>
+      <th data-sort="status">Status ${arr('status')}</th>
+      <th data-sort="assignee">Assignee ${arr('assignee')}</th>
+      <th data-sort="due">Due ${arr('due')}</th>
+      <th class="nosort">Chk</th>
+    </tr></thead><tbody>${rows||`<tr><td colspan="11" style="text-align:center;color:var(--dim2);font-family:var(--font-mono);font-size:11px;padding:20px">No tasks match the current filters</td></tr>`}</tbody></table></div>`;
+}
+
+/* ================= RENDER: DASHBOARD ================= */
+const STATUS_COLOR={'Backlog':'var(--grey)','To Do':'var(--blue)','In Progress':'var(--accent)','Blocked':'var(--red)','Waiting':'var(--purple)','Done':'var(--green)'};
+const STATUS_CLASS={'Backlog':'c-grey','To Do':'c-blue','In Progress':'c-orange','Blocked':'c-red','Waiting':'c-purple','Done':'c-green'};
+function renderDash(list){
+  if(!S.tasks.length)return emptyState();
+  const [mon,sun]=weekBounds();
+  const overdue=sortTasks(list.filter(t=>t.status!=='Done'&&t.due&&daysUntil(t.due)<0));
+  const dueWeek=sortTasks(list.filter(t=>t.status!=='Done'&&t.due&&t.due>=todayISO()&&t.due<=sun));
+  const blocked=list.filter(t=>t.status==='Blocked');
+  const miniRows=arr=>arr.slice(0,12).map(t=>`<tr><td>${t.id}</td><td><span class="tttl" data-action="open-task" data-id="${t.id}">${esc(t.title)}</span></td><td style="width:70px"><span class="jn" style="font-family:var(--font-mono);font-size:9px;color:var(--accent-text)">${esc(projLabel(t.project))}</span></td><td style="width:80px"><span class="due ${dueClass(t)}">${fmtDate(t.due)}</span></td></tr>`).join('')||`<tr><td colspan="4" style="color:var(--dim2)">None</td></tr>`;
+  // per-project stacked bars (open tasks by status)
+  const projRows=[];
+  const groups=new Map();
+  for(const t of list){const k=t.project||'__none__';(groups.get(k)||groups.set(k,[]).get(k)).push(t);}
+  let maxN=1; for(const arr of groups.values()){const n=arr.filter(t=>t.status!=='Done').length; if(n>maxN)maxN=n;}
+  for(const [pid,arr] of [...groups.entries()].sort((a,b)=>b[1].length-a[1].length)){
+    const p=projById(pid); const open=arr.filter(t=>t.status!=='Done');
+    if(!open.length&&pid==='__none__')continue;
+    const segs=STATUSES.filter(s=>s!=='Done').map(s=>{
+      const n=open.filter(t=>t.status===s).length;
+      return n?`<div class="fill" style="width:${(n/maxN*100)}%;background:${STATUS_COLOR[s]}" title="${s}: ${n}"></div>`:'';
+    }).join('');
+    projRows.push(`<div class="barRow">
+      <span class="lbl">${esc(p?p.name:'(No project)')}<span class="jn">${esc(p?p.jobNo||'':'')}</span></span>
+      <div class="track">${segs}</div><span class="n">${open.length}</span></div>`);
+  }
+  $('#viewRoot').innerHTML=`<div id="dash">
+    <div class="panel span12"><h3>Status Overview${S.selProject!=='ALL'?' — '+esc(S.selProject==='WEEK'?'My Week':projLabel(S.selProject)):''}</h3>
+      <div class="statRow">${STATUSES.map(s=>`<div class="stat ${STATUS_CLASS[s]}"><div class="v">${list.filter(t=>t.status===s).length}</div><div class="l">${s}</div></div>`).join('')}</div>
+    </div>
+    <div class="panel span6"><h3>Overdue — ${overdue.length}</h3><table class="mini">${miniRows(overdue)}</table></div>
+    <div class="panel span6"><h3>Due This Week (${fmtDate(mon)} – ${fmtDate(sun)}) — ${dueWeek.length}</h3><table class="mini">${miniRows(dueWeek)}</table></div>
+    <div class="panel span6"><h3>Open Tasks per Project</h3>${projRows.join('')||'<div style="color:var(--dim2);font-size:12px">No open tasks</div>'}
+      <div class="legend">${STATUSES.filter(s=>s!=='Done').map(s=>`<span><i style="background:${STATUS_COLOR[s]}"></i>${s}</span>`).join('')}</div>
+    </div>
+    <div class="panel span6"><h3>Blocked — ${blocked.length}</h3>
+      ${blocked.map(t=>`<div style="margin-bottom:8px;padding:8px;background:var(--panel2);border:1px solid #ef444433;border-radius:4px">
+        <div style="display:flex;gap:8px;align-items:center"><span class="tid mono" style="font-size:9px;color:var(--dim2)">${t.id}</span>
+        <span class="tttl" data-action="open-task" data-id="${t.id}" style="font-weight:600;font-size:12px">${esc(t.title)}</span>
+        <span class="jn mono" style="margin-left:auto;font-size:9px;color:var(--accent-text)">${esc(projLabel(t.project))}</span></div>
+        <div class="mono" style="font-size:10px;color:#fca5a5;margin-top:4px">⛔ ${esc(t.blockedReason||'(no reason recorded)')}</div>
+      </div>`).join('')||'<div style="color:var(--dim2);font-size:12px">Nothing blocked</div>'}
+    </div>
+  </div>`;
+}
+
+/* ================= EMPTY STATE ================= */
+function emptyState(){
+  $('#viewRoot').innerHTML=`<div class="empty">
+    <div class="big">${S.projects.length?'No tasks yet':'Nothing here yet'}</div>
+    <div class="hint">${S.projects.length
+      ?'Type in the quick-add bar — e.g. <b>&lt;task title&gt; !&lt;priority&gt; #&lt;job number&gt; @&lt;assignee&gt; due:&lt;dd/mm&gt;</b> — or hit <b>+ TASK</b>'
+      :'Create your first project with <b>+ NEW PROJECT</b> in the sidebar, then add tasks with the quick-add bar or <b>+ TASK</b>'}</div>
+  </div>`;
+}
+
+/* ================= MASTER RENDER ================= */
+function render(){
+  renderSidebar(); renderFilters();
+  $$('#viewSeg button').forEach(b=>b.classList.toggle('active',b.dataset.view===S.view));
+  const list=visibleTasks();
+  if(S.view==='board')renderBoard(list);
+  else if(S.view==='list')renderList(list);
+  else renderDash(list);
+  const open=S.tasks.filter(t=>t.status!=='Done').length;
+  $('#footStats').textContent=`· ${S.projects.length} PROJECTS · ${S.tasks.length} TASKS (${open} OPEN) · ${memMode?'MEMORY ONLY':'INDEXEDDB OK'}`;
+  $('#devToggle').classList.toggle('on',S.dev);
+  $('#devPanel').classList.toggle('show',S.dev);
+}
+
+/* ================= TASK MODAL ================= */
+let editingTaskId=null, editingDraft=null;
+function openTaskModal(id,defaults){
+  editingTaskId=id||null;
+  const t=id?taskById(id):null;
+  editingDraft=t?JSON.parse(JSON.stringify(t)):{
+    id:'(new)',project:defaults&&defaults.project||((S.selProject!=='ALL'&&S.selProject!=='WEEK')?S.selProject:''),
+    title:defaults&&defaults.title||'',description:defaults&&defaults.description||'',
+    link:defaults&&defaults.link||'',eml:defaults&&defaults.eml||null,
+    discipline:'General',category:'Admin',priority:'Medium',status:defaults&&defaults.status||'To Do',
+    assignee:'',due:'',created:todayISO(),completed:null,blockedReason:'',recurrence:'',checklist:[],log:[]};
+  renderTaskModal();
+}
+function renderTaskModal(){
+  const d=editingDraft;
+  const opt=(vals,cur)=>vals.map(v=>`<option ${v===cur?'selected':''} value="${esc(v)}">${esc(v||'(none)')}</option>`).join('');
+  openModal(`<div class="modal">
+    <div class="modal-head"><span class="hdr">${editingTaskId?'Task '+editingTaskId:'New Task'}</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
+    <div class="modal-body">
+      <div class="frm">
+        <div class="fld full"><label>Title</label><input id="tm-title" type="text" value="${esc(d.title)}" placeholder="What needs doing"></div>
+        <div class="fld full"><label>Description</label><textarea id="tm-desc">${esc(d.description||'')}</textarea></div>
+        <div class="fld"><label>Project</label><select id="tm-project"><option value="">(No project)</option>${S.projects.map(p=>`<option ${p.id===d.project?'selected':''} value="${p.id}">${esc((p.jobNo?p.jobNo+' — ':'')+p.name)}</option>`).join('')}</select></div>
+        <div class="fld"><label>Assignee</label><input id="tm-assignee" type="text" value="${esc(d.assignee||'')}" placeholder="Name or initials"></div>
+        <div class="fld"><label>Discipline</label><select id="tm-discipline">${opt(DISCIPLINES,d.discipline)}</select></div>
+        <div class="fld"><label>Category</label><select id="tm-category">${opt(CATEGORIES,d.category)}</select></div>
+        <div class="fld"><label>Priority</label><select id="tm-priority">${opt(PRIORITIES,d.priority)}</select></div>
+        <div class="fld"><label>Status</label><select id="tm-status">${opt(STATUSES,d.status)}</select></div>
+        <div class="fld"><label>Due Date</label><input id="tm-due" type="date" value="${d.due||''}"></div>
+        <div class="fld"><label>Recurrence</label><select id="tm-recur">${RECUR.map(r=>`<option ${r===(d.recurrence||'')?'selected':''} value="${r}">${r||'(none)'}</option>`).join('')}</select></div>
+        <div class="fld full"><label>Link (email / URL)${d.link?` — <a href="${esc(d.link)}" target="_blank" rel="noopener" style="color:var(--accent-text);text-transform:none;letter-spacing:0">open ↗</a>`:''}</label><input id="tm-link" type="text" value="${esc(d.link||'')}" placeholder="https://outlook.office.com/…"></div>
+        ${d.eml?`<div class="fld full"><label>Attached Email</label><div class="emlBox">✉ <span class="nm" title="${esc(d.eml.name)}">${esc(d.eml.name)}</span><span class="sz">${Math.round(d.eml.size/1024)} KB</span><button class="btn sm" data-action="eml-download">Download</button><button class="btn sm danger" data-action="eml-remove">Remove</button></div></div>`:''}
+        <div class="fld full" id="tm-blockwrap" style="${d.status==='Blocked'?'':'display:none'}"><label>Blocked Reason (required)</label><input id="tm-blocked" type="text" value="${esc(d.blockedReason||'')}" placeholder="Why is this blocked?"></div>
+      </div>
+      <div class="subhdr">Checklist</div>
+      <div id="tm-cklist">${(d.checklist||[]).map(c=>`
+        <div class="ckItem"><input type="checkbox" data-cktick="${c.id}" ${c.done?'checked':''}>
+        <span class="txt ${c.done?'done':''}">${esc(c.text)}</span>
+        <button class="rm" data-action="ck-remove" data-ck="${c.id}" title="Remove item">✕</button></div>`).join('')||'<div class="mono" style="font-size:10px;color:var(--dim2)">No sub-items</div>'}</div>
+      <div class="ckAddRow"><input id="tm-ckadd" type="text" placeholder="Add sub-item (Enter)"><button class="btn sm" data-action="ck-add">Add</button></div>
+      ${editingTaskId?`<div class="subhdr">Activity Log</div>
+      <div class="logList">${(d.log||[]).slice().reverse().map(l=>`<div class="logItem"><span class="t">${fmtDT(l.t)}</span> — <span class="${l.m?'manual':''}">${esc(l.text)}</span></div>`).join('')||'<div class="logItem">No activity</div>'}</div>
+      <div class="ckAddRow"><input id="tm-note" type="text" placeholder="Add note to activity log (Enter)"><button class="btn sm" data-action="note-add">Note</button></div>
+      <div class="mono" style="font-size:9px;color:var(--dim2);margin-top:8px">Created ${fmtDate(d.created)}${d.completed?' · Completed '+fmtDate(d.completed):''}</div>`:''}
+    </div>
+    <div class="modal-foot">
+      ${editingTaskId?`<button class="btn danger" data-action="task-delete" data-id="${editingTaskId}">Delete</button>`:''}
+      <span class="spacer"></span>
+      <button class="btn" data-action="modal-cancel">Cancel</button>
+      <button class="btn accent" data-action="task-save">${editingTaskId?'Save Changes':'Create Task'}</button>
+    </div></div>`);
+  setTimeout(()=>{const i=$('#tm-title');if(i&&!editingTaskId)i.focus();},20);
+}
+function collectTaskForm(){
+  const d=editingDraft;
+  d.title=$('#tm-title').value.trim();
+  d.description=$('#tm-desc').value;
+  d.project=$('#tm-project').value;
+  d.assignee=$('#tm-assignee').value.trim();
+  d.discipline=$('#tm-discipline').value;
+  d.category=$('#tm-category').value;
+  d.priority=$('#tm-priority').value;
+  d.status=$('#tm-status').value;
+  d.due=$('#tm-due').value;
+  d.recurrence=$('#tm-recur').value;
+  d.link=$('#tm-link')?$('#tm-link').value.trim():'';
+  d.blockedReason=$('#tm-blocked')?$('#tm-blocked').value.trim():'';
+}
+function saveTaskModal(){
+  collectTaskForm();
+  const d=editingDraft;
+  if(!d.title){toast('Title is required',true);return;}
+  if(d.status==='Blocked'&&!d.blockedReason){toast('Blocked status needs a reason',true);return;}
+  if(editingTaskId){
+    const t=taskById(editingTaskId);
+    const oldStatus=t.status;
+    const changes=[];
+    for(const k of ['title','project','assignee','discipline','category','priority','due','recurrence','description','link']){
+      if((t[k]||'')!==(d[k]||''))changes.push(k);
+    }
+    Object.assign(t,{title:d.title,description:d.description,project:d.project,assignee:d.assignee,
+      discipline:d.discipline,category:d.category,priority:d.priority,due:d.due,recurrence:d.recurrence,
+      checklist:d.checklist,link:d.link,eml:d.eml||null});
+    if(changes.length)addLog(t,'Edited: '+changes.join(', '));
+    if(oldStatus!==d.status){applyStatus(t,d.status,d.blockedReason);}
+    else if(d.status==='Blocked'){t.blockedReason=d.blockedReason;}
+    saveTask(t);
+    toast(t.id+' saved');
+  }else{
+    const t={...d,id:nextTid(),log:[]};
+    addLog(t,'Created');
+    if(t.status==='Done')t.completed=todayISO();
+    S.tasks.push(t);saveTask(t);
+    if(t.status==='Done')maybeRecur(t);
+    toast(t.id+' created');
+  }
+  closeModal();render();
+}
+
+/* ================= PROJECT MODAL ================= */
+let editingProjId=null;
+function openProjectModal(id){
+  editingProjId=id||null;
+  const p=id?projById(id):{jobNo:'',name:'',client:'',status:'In Progress',start:'',pc:'',notes:''};
+  openModal(`<div class="modal">
+    <div class="modal-head"><span class="hdr">${id?'Project '+id:'New Project'}</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
+    <div class="modal-body"><div class="frm">
+      <div class="fld"><label>Job Number</label><input id="pm-jobno" type="text" value="${esc(p.jobNo||'')}" placeholder="e.g. 2122-184"></div>
+      <div class="fld"><label>Status</label><select id="pm-status">${PSTATUSES.map(s=>`<option ${s===p.status?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="fld full"><label>Project Name</label><input id="pm-name" type="text" value="${esc(p.name||'')}" placeholder="Project name"></div>
+      <div class="fld full"><label>Client</label><input id="pm-client" type="text" value="${esc(p.client||'')}" placeholder="Client / head contractor"></div>
+      <div class="fld"><label>Start Date</label><input id="pm-start" type="date" value="${p.start||''}"></div>
+      <div class="fld"><label>PC Date</label><input id="pm-pc" type="date" value="${p.pc||''}"></div>
+      <div class="fld full"><label>Notes</label><textarea id="pm-notes">${esc(p.notes||'')}</textarea></div>
+    </div></div>
+    <div class="modal-foot">
+      ${id?`<button class="btn danger" data-action="project-delete" data-id="${id}">Delete</button>`:''}
+      <span class="spacer"></span>
+      <button class="btn" data-action="modal-cancel">Cancel</button>
+      <button class="btn accent" data-action="project-save">${id?'Save Changes':'Create Project'}</button>
+    </div></div>`);
+  setTimeout(()=>{const i=$('#pm-name');if(i&&!id)i.focus();},20);
+}
+function saveProjectModal(){
+  const name=$('#pm-name').value.trim();
+  if(!name){toast('Project name is required',true);return;}
+  const vals={jobNo:$('#pm-jobno').value.trim(),name,client:$('#pm-client').value.trim(),
+    status:$('#pm-status').value,start:$('#pm-start').value,pc:$('#pm-pc').value,notes:$('#pm-notes').value};
+  if(editingProjId){
+    const p=projById(editingProjId); Object.assign(p,vals); saveProject(p); toast(p.id+' saved');
+  }else{
+    const p={id:nextPid(),...vals}; S.projects.push(p); saveProject(p);
+    S.selProject=p.id; persistPrefs(); toast(p.id+' created');
+  }
+  closeModal();render();
+}
+async function deleteProjectFlow(id){
+  const p=projById(id); if(!p)return;
+  const n=S.tasks.filter(t=>t.project===id).length;
+  closeModal();
+  const choice=await confirmModal('Delete Project',
+    `Delete <b>${esc(p.name)}</b>${p.jobNo?' ('+esc(p.jobNo)+')':''}?<br><br>It has <b>${n}</b> task${n===1?'':'s'}. Choose what happens to them:`,
+    [{label:'Cancel',val:'cancel'},{label:'Orphan tasks',val:'orphan'},{label:'Delete tasks too',cls:'danger',val:'delete'}]);
+  if(choice==='cancel'||choice==null)return;
+  const snapshotP=JSON.parse(JSON.stringify(p));
+  const affected=S.tasks.filter(t=>t.project===id).map(t=>JSON.parse(JSON.stringify(t)));
+  if(choice==='delete'){
+    S.tasks=S.tasks.filter(t=>t.project!==id);
+    affected.forEach(t=>idbDel('tasks',t.id));
+  }else{
+    S.tasks.forEach(t=>{if(t.project===id){t.project='';addLog(t,`Orphaned — project ${p.id} deleted`);saveTask(t);}});
+  }
+  S.projects=S.projects.filter(x=>x.id!==id); idbDel('projects',id);
+  if(S.selProject===id){S.selProject='ALL';persistPrefs();}
+  pushUndo(`delete project ${p.id}`,()=>{
+    S.projects.push(snapshotP); saveProject(snapshotP);
+    if(choice==='delete'){S.tasks.push(...affected);affected.forEach(saveTask);}
+    else{affected.forEach(a=>{const t=taskById(a.id);if(t){t.project=id;t.log=a.log;saveTask(t);}});}
+  });
+  toast(`${p.id} deleted (${choice==='delete'?n+' tasks removed':'tasks orphaned'}) — Ctrl+Z to undo`);
+  render();
+}
+
+/* ================= CSV EXPORT / IMPORT ================= */
+const TASK_COLS=['id','project','projectJobNo','title','description','discipline','category','priority','status','assignee','due','created','completed','blockedReason','recurrence','link','checklist'];
+function taskRow(t){
+  const p=projById(t.project);
+  return [t.id,t.project||'',p?(p.jobNo||''):'',t.title,t.description||'',t.discipline,t.category,t.priority,t.status,
+    t.assignee||'',fmtDate(t.due),fmtDate(t.created),fmtDate(t.completed),t.blockedReason||'',t.recurrence||'',t.link||'',
+    (t.checklist||[]).map(c=>(c.done?'[x] ':'[ ] ')+c.text).join('; ')];
+}
+function exportTasksCSV(list,name){
+  const rows=[TASK_COLS,...list.map(taskRow)];
+  saveFile(name,toCSV(rows),'text/csv','CSV file','.csv');
+}
+function exportProjectsCSV(){
+  const cols=['id','jobNo','name','client','status','start','pc','notes'];
+  const rows=[cols,...S.projects.map(p=>[p.id,p.jobNo||'',p.name,p.client||'',p.status,fmtDate(p.start),fmtDate(p.pc),p.notes||''])];
+  saveFile('taskhub-projects.csv',toCSV(rows),'text/csv','CSV file','.csv');
+}
+async function importCSVFlow(){
+  const text=await openFile({'text/csv':['.csv']});
+  if(!text)return;
+  const rows=parseCSV(text);
+  if(rows.length<2){toast('CSV has no data rows',true);return;}
+  const head=rows[0].map(h=>h.trim().toLowerCase());
+  const col=n=>head.indexOf(n.toLowerCase());
+  const isProj=col('name')>-1&&col('title')===-1;
+  let added=0;
+  if(isProj){
+    for(const r of rows.slice(1)){
+      const v=i=>i>-1&&r[i]!=null?String(r[i]).trim():'';
+      const name=v(col('name')); if(!name)continue;
+      const p={id:nextPid(),jobNo:v(col('jobno'))||v(col('job number')),name,client:v(col('client')),
+        status:PSTATUSES.includes(v(col('status')))?v(col('status')):'In Progress',
+        start:parseDMY(v(col('start')))||v(col('start'))||'',pc:parseDMY(v(col('pc')))||v(col('pc'))||'',notes:v(col('notes'))};
+      S.projects.push(p);saveProject(p);added++;
+    }
+    toast(`Imported ${added} projects`);
+  }else{
+    const ti=col('title'); if(ti===-1){toast('Could not recognise CSV — need a "title" (tasks) or "name" (projects) column',true);return;}
+    for(const r of rows.slice(1)){
+      const v=n=>{const i=col(n);return i>-1&&r[i]!=null?String(r[i]).trim():'';};
+      const title=v('title'); if(!title)continue;
+      let project=v('project');
+      if(project&&!projById(project)){
+        const jn=v('projectjobno')||project;
+        const p=S.projects.find(x=>(x.jobNo||'').toLowerCase()===jn.toLowerCase()||x.name.toLowerCase()===project.toLowerCase());
+        project=p?p.id:'';
+      }
+      const t={id:nextTid(),project,title,description:v('description'),
+        discipline:DISCIPLINES.includes(v('discipline'))?v('discipline'):'General',
+        category:CATEGORIES.includes(v('category'))?v('category'):'Admin',
+        priority:PRIORITIES.includes(v('priority'))?v('priority'):'Medium',
+        status:STATUSES.includes(v('status'))?v('status'):'To Do',
+        assignee:v('assignee'),due:parseDMY(v('due'))||(/^\d{4}-\d{2}-\d{2}$/.test(v('due'))?v('due'):''),
+        created:parseDMY(v('created'))||todayISO(),completed:parseDMY(v('completed'))||null,
+        blockedReason:v('blockedreason'),recurrence:RECUR.includes(v('recurrence'))?v('recurrence'):'',link:v('link'),
+        checklist:v('checklist')?v('checklist').split(';').map(s=>s.trim()).filter(Boolean).map(s=>({id:uid(),text:s.replace(/^\[[x ]\]\s*/i,''),done:/^\[x\]/i.test(s)})):[],
+        log:[]};
+      if(t.status==='Done'&&!t.completed)t.completed=todayISO();
+      addLog(t,'Imported from CSV');
+      S.tasks.push(t);saveTask(t);added++;
+    }
+    toast(`Imported ${added} tasks`);
+  }
+  render();
+}
+
+/* ================= BACKUP / RESTORE ================= */
+function backup(){
+  const data={app:'taskhub-pro',schema:1,exported:nowISO(),counters,projects:S.projects,tasks:S.tasks};
+  saveFile('taskhub-backup-'+todayISO()+'.json',JSON.stringify(data,null,2),'application/json','JSON backup','.json');
+}
+async function restoreFlow(){
+  const text=await openFile({'application/json':['.json']});
+  if(!text)return;
+  let data;
+  try{data=JSON.parse(text);}catch(e){toast('Not valid JSON',true);return;}
+  if(!data||!Array.isArray(data.projects)||!Array.isArray(data.tasks)){toast('Not a TaskHub backup file',true);return;}
+  const choice=await confirmModal('Restore Backup',
+    `Backup from <b>${data.exported?fmtDT(data.exported):'unknown date'}</b> — ${data.projects.length} projects, ${data.tasks.length} tasks.<br><br>This <b>replaces all current data</b>.`,
+    [{label:'Cancel',val:'cancel'},{label:'Replace everything',cls:'danger',val:'go'}]);
+  if(choice!=='go')return;
+  S.projects=data.projects; S.tasks=data.tasks;
+  counters=data.counters&&typeof data.counters.p==='number'?data.counters:{
+    p:Math.max(0,...S.projects.map(p=>+String(p.id).replace(/\D/g,'')||0)),
+    t:Math.max(0,...S.tasks.map(t=>+String(t.id).replace(/\D/g,'')||0))};
+  idbClear('projects');idbClear('tasks');
+  S.projects.forEach(saveProject);S.tasks.forEach(saveTask);persistCounters();
+  S.selected.clear(); if(S.selProject!=='ALL'&&S.selProject!=='WEEK'&&!projById(S.selProject)){S.selProject='ALL';persistPrefs();}
+  toast('Backup restored');render();
+}
+
+/* ================= SEED DATA (DEV) ================= */
+function seed(){
+  const mk=(jobNo,name,client,status,start,pc)=>{const p={id:nextPid(),jobNo,name,client,status,start,pc,notes:'',seed:true};S.projects.push(p);saveProject(p);return p;};
+  const day=n=>{const d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  const p1=mk('2122-184','Perth Concert Hall Redevelopment','Multiplex','In Progress',day(-220),day(160));
+  const p2=mk('2324-051','EQ5 — 15 The Esplanade','Brookfield','In Progress',day(-90),day(400));
+  const p3=mk('2425-012','Karrinyup DC Switchroom Upgrade','Coles Group','Awarded',day(20),day(120));
+  const T=(project,title,disc,cat,pri,st,assignee,due,extra)=>{
+    const t={id:nextTid(),project:project.id,title,description:'',discipline:disc,category:cat,priority:pri,status:st,
+      assignee,due,created:day(-Math.floor(Math.random()*30)-1),completed:st==='Done'?day(-Math.floor(Math.random()*5)):null,
+      blockedReason:'',recurrence:'',checklist:[],log:[],seed:true,...(extra||{})};
+    addLog(t,'Created (seed)');S.tasks.push(t);saveTask(t);};
+  T(p1,'Raise RFI — main switchboard clearances vs AS/NZS 3000 cl 2.9','Electrical','RFI','High','In Progress','MK',day(2));
+  T(p1,'Procure Cat 6A cable — Level 2 comms risers','Comms','Procurement','Medium','To Do','Dave',day(9));
+  T(p1,'Submit luminaire sample — auditorium house lights','Electrical','Design','High','Waiting','MK',day(5));
+  T(p1,'QA walk — Level 1 cable tray installation','Electrical','QA','Medium','To Do','Steve',day(3));
+  T(p1,'EWIS speaker layout mark-up for services coordination','Fire','Design','Medium','Backlog','MK',day(14));
+  T(p1,'Chase Schneider on MSB delivery date','Electrical','Procurement','Critical','Blocked','MK',day(-2),{blockedReason:'Awaiting revised lead time from Schneider — escalated to rep'});
+  T(p1,'Weekly site coordination meeting minutes','General','Admin','Low','To Do','MK',day(1),{recurrence:'weekly'});
+  T(p1,'Close out defect list — back of house lighting','Electrical','Site','Medium','Done','Steve',day(-3));
+  T(p1,'Security door hardware schedule review','Security','Design','Low','Backlog','Dave',day(21));
+  T(p2,'Dry fire rough-in — Level 12 pressurisation fans','Dry Fire','Site','High','In Progress','Steve',day(4));
+  T(p2,'Order generator load bank for commissioning','Electrical','Procurement','High','To Do','MK',day(11));
+  T(p2,'RFI — riser penetration fire rating detail','Fire','RFI','Critical','In Progress','MK',day(1));
+  T(p2,'MATV headend equipment submittal','Comms','Design','Medium','Waiting','Dave',day(8));
+  T(p2,'Site instruction register update','General','Admin','Low','To Do','MK',day(2),{recurrence:'fortnightly'});
+  T(p2,'Level 8 lighting control commissioning (DALI)','Electrical','Delivery','High','Backlog','Steve',day(25));
+  T(p2,'CCTV camera schedule vs architectural RCP check','Security','QA','Medium','To Do','Dave',day(6));
+  T(p2,'Blocked — awaiting builder access Level 15','Electrical','Site','Medium','Blocked','Steve',day(-1),{blockedReason:'Builder has not released Level 15 — structure incomplete'});
+  T(p2,'Practical completion documentation index','General','Admin','Low','Backlog','MK',day(45));
+  T(p2,'Cable support seismic bracing register — Levels 1-5','Electrical','QA','Medium','Done','MK',day(-6));
+  T(p3,'Tender handover meeting with estimating','General','Admin','High','Done','MK',day(-4));
+  T(p3,'Procurement schedule — long lead switchgear','Electrical','Procurement','Critical','In Progress','MK',day(7));
+  T(p3,'Site establishment plan and SWMS pack','General','Site','High','To Do','Steve',day(12));
+  T(p3,'Existing switchroom dilapidation survey','Electrical','Site','Medium','To Do','Dave',day(15));
+  T(p3,'UPS bypass methodology draft for client review','Electrical','Design','High','Backlog','MK',day(18));
+  T(p3,'Monthly progress claim preparation','General','Admin','Medium','To Do','MK',day(5),{recurrence:'monthly'});
+  toast('Seeded 3 projects + 25 tasks');render();
+}
+function clearSeed(){
+  const pn=S.projects.filter(p=>p.seed).length, tn=S.tasks.filter(t=>t.seed).length;
+  S.projects.filter(p=>p.seed).forEach(p=>idbDel('projects',p.id));
+  S.tasks.filter(t=>t.seed).forEach(t=>idbDel('tasks',t.id));
+  S.projects=S.projects.filter(p=>!p.seed);
+  S.tasks=S.tasks.filter(t=>!t.seed);
+  if(S.selProject!=='ALL'&&S.selProject!=='WEEK'&&!projById(S.selProject)){S.selProject='ALL';persistPrefs();}
+  toast(`Cleared ${pn} seed projects, ${tn} seed tasks`);render();
+}
+
+/* ================= EVENT DELEGATION ================= */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-action]');
+  if(!el)return;
+  const a=el.dataset.action, id=el.dataset.id;
+  switch(a){
+    case 'toggle-sidebar':S.sidebarCollapsed=!S.sidebarCollapsed;persistPrefs();renderSidebar();break;
+    case 'toggle-mobile-nav':$('#sidebar').classList.toggle('mobile-open');break;
+    case 'close-mobile-nav':$('#sidebar').classList.remove('mobile-open');break;
+    case 'sync-settings':openSyncModal();break;
+    case 'sync-save':readSyncForm();closeModal();if(sync.enabled&&sync.token){setSyncStatus('on');sync.gistId?pullSync(true):pushSync();}else setSyncStatus('off');toast('Sync settings saved');break;
+    case 'sync-pull-now':readSyncForm();pullSync(true);break;
+    case 'sync-push-now':readSyncForm();pushSync();break;
+    case 'sel-project':S.selProject=el.dataset.id;S.selected.clear();persistPrefs();$('#sidebar').classList.remove('mobile-open');render();break;
+    case 'new-project':openProjectModal();break;
+    case 'new-task':openTaskModal();break;
+    case 'open-task':
+      if(el.dataset.editable){clearTimeout(window.__openT);window.__openT=setTimeout(()=>openTaskModal(id),260);}
+      else openTaskModal(id);
+      break;
+    case 'set-view':S.view=el.dataset.view;S.selected.clear();persistPrefs();render();break;
+    case 'settings':openSettingsModal();break;
+    case 'clear-filters':S.filters={project:'',discipline:'',category:'',priority:'',status:'',assignee:'',overdue:false};S.search='';$('#search').value='';render();break;
+    case 'csv-tasks':closeModal();exportTasksCSV(S.tasks,'taskhub-tasks.csv');break;
+    case 'csv-projects':closeModal();exportProjectsCSV();break;
+    case 'csv-week':closeModal();exportTasksCSV(sortTasks(visibleTasks()),'taskhub-weekly-report-'+todayISO()+'.csv');break;
+    case 'csv-import':closeModal();importCSVFlow();break;
+    case 'backup':closeModal();backup();break;
+    case 'restore':closeModal();restoreFlow();break;
+    case 'toggle-dev':S.dev=!S.dev;render();break;
+    case 'seed':seed();break;
+    case 'clear-seed':clearSeed();break;
+    case 'eml-download':{
+      const d=editingDraft; if(!d||!d.eml)break;
+      saveFile(d.eml.name,d.eml.data,'message/rfc822','Email file','.eml');
+      break;}
+    case 'eml-remove':{
+      if(editingDraft){collectTaskForm();editingDraft.eml=null;renderTaskModal();}
+      break;}
+    case 'modal-cancel':{const cb=modalCb;modalCb=null;closeModal();if(cb&&cb.length===0){}else if(cb&&typeof cb==='function'&&cb!==saveTaskModal){try{cb(null);}catch(_){}}break;}
+    case 'modal-choice':{const cb=modalCb;modalCb=null;closeModal();if(cb)cb(el.dataset.val);break;}
+    case 'prompt-ok':{const v=$('#promptInput')?$('#promptInput').value:'';const cb=modalCb;modalCb=null;closeModal();if(cb)cb(v);break;}
+    case 'task-save':saveTaskModal();break;
+    case 'task-delete':{
+      const t=taskById(id); if(!t)break;
+      closeModal();
+      confirmModal('Delete Task',`Delete <b>${esc(t.id)}</b> — ${esc(t.title)}?`,
+        [{label:'Cancel',val:'cancel'},{label:'Delete',cls:'danger',val:'go'}]).then(c=>{
+        if(c!=='go')return;
+        const snap=JSON.parse(JSON.stringify(t));
+        S.tasks=S.tasks.filter(x=>x.id!==t.id);idbDel('tasks',t.id);S.selected.delete(t.id);
+        pushUndo('delete '+t.id,()=>{S.tasks.push(snap);saveTask(snap);});
+        toast(t.id+' deleted — Ctrl+Z to undo');render();
+      });
+      break;}
+    case 'project-save':saveProjectModal();break;
+    case 'project-delete':deleteProjectFlow(id);break;
+    case 'ck-add':{const i=$('#tm-ckadd');if(i&&i.value.trim()){editingDraft.checklist.push({id:uid(),text:i.value.trim(),done:false});collectTaskForm();renderTaskModal();}break;}
+    case 'ck-remove':{collectTaskForm();editingDraft.checklist=editingDraft.checklist.filter(c=>c.id!==el.dataset.ck);renderTaskModal();break;}
+    case 'note-add':{const i=$('#tm-note');if(i&&i.value.trim()&&editingTaskId){const t=taskById(editingTaskId);addLog(t,i.value.trim(),true);saveTask(t);collectTaskForm();editingDraft.log=JSON.parse(JSON.stringify(t.log));renderTaskModal();}break;}
+    case 'sel-all':{
+      const vis=sortTasks(visibleTasks());
+      const all=vis.length&&vis.every(t=>S.selected.has(t.id));
+      if(all)vis.forEach(t=>S.selected.delete(t.id)); else vis.forEach(t=>S.selected.add(t.id));
+      render();break;}
+    case 'bulk-clear':S.selected.clear();render();break;
+    case 'bulk-delete':{
+      const ids=[...S.selected]; if(!ids.length)break;
+      confirmModal('Delete Tasks',`Delete <b>${ids.length}</b> selected task${ids.length===1?'':'s'}?`,
+        [{label:'Cancel',val:'cancel'},{label:'Delete all',cls:'danger',val:'go'}]).then(c=>{
+        if(c!=='go')return;
+        const snaps=ids.map(i=>JSON.parse(JSON.stringify(taskById(i)))).filter(Boolean);
+        S.tasks=S.tasks.filter(t=>!S.selected.has(t.id));
+        ids.forEach(i=>idbDel('tasks',i));S.selected.clear();
+        pushUndo('delete '+snaps.length+' tasks',()=>{S.tasks.push(...snaps);snaps.forEach(saveTask);});
+        toast(snaps.length+' tasks deleted — Ctrl+Z to undo');render();
+      });
+      break;}
+  }
+});
+
+document.addEventListener('dblclick',e=>{
+  // sidebar project node: edit
+  const node=e.target.closest('[data-ctx="project"]');
+  if(node){openProjectModal(node.dataset.id);return;}
+  // list title rename
+  const t=e.target.closest('[data-editable="title"]');
+  if(t){
+    clearTimeout(window.__openT);
+    const id=t.dataset.id, task=taskById(id); if(!task)return;
+    const inp=document.createElement('input');
+    inp.className='inlineEdit';inp.value=task.title;inp.dataset.renameId=id;
+    t.replaceWith(inp);inp.focus();inp.select();
+  }
+});
+
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.filter){
+    if(el.dataset.filter==='overdue')S.filters.overdue=el.checked;
+    else S.filters[el.dataset.filter]=el.value;
+    render();return;
+  }
+  if(el.dataset.inline){
+    const t=taskById(el.dataset.id); if(!t)return;
+    const k=el.dataset.inline;
+    if(k==='status'){ if(el.value!==t.status)requestStatus([t.id],el.value); return; }
+    if(k==='priority'&&el.value!==t.priority){addLog(t,`Priority ${t.priority} → ${el.value}`);t.priority=el.value;saveTask(t);render();}
+    if(k==='due'&&el.value!==(t.due||'')){addLog(t,`Due ${fmtDate(t.due)||'—'} → ${fmtDate(el.value)||'—'}`);t.due=el.value;saveTask(t);render();}
+    return;
+  }
+  if(el.dataset.selrow){
+    if(el.checked)S.selected.add(el.dataset.selrow); else S.selected.delete(el.dataset.selrow);
+    render();return;
+  }
+  if(el.dataset.bulk&&el.value){
+    const ids=[...S.selected]; const k=el.dataset.bulk; const v=el.value;
+    if(!ids.length)return;
+    const snaps=ids.map(i=>JSON.parse(JSON.stringify(taskById(i)))).filter(Boolean);
+    if(k==='status'){pushUndo('bulk status change',()=>{snaps.forEach(s=>{const t=taskById(s.id);if(t)Object.assign(t,s),saveTask(t);});});requestStatus(ids,v);}
+    else if(k==='priority'){
+      pushUndo('bulk priority change',()=>{snaps.forEach(s=>{const t=taskById(s.id);if(t)Object.assign(t,s),saveTask(t);});});
+      ids.forEach(i=>{const t=taskById(i);if(t&&t.priority!==v){addLog(t,`Priority ${t.priority} → ${v} (bulk)`);t.priority=v;saveTask(t);}});render();
+    }else if(k==='project'){
+      const pid=v==='__none__'?'':v;
+      pushUndo('bulk project move',()=>{snaps.forEach(s=>{const t=taskById(s.id);if(t)Object.assign(t,s),saveTask(t);});});
+      ids.forEach(i=>{const t=taskById(i);if(t&&t.project!==pid){addLog(t,`Moved to ${pid?projLabel(pid):'(no project)'} (bulk)`);t.project=pid;saveTask(t);}});render();
+    }
+    return;
+  }
+  if(el.dataset.cktick&&editingDraft){
+    const c=editingDraft.checklist.find(x=>x.id===el.dataset.cktick);
+    if(c){c.done=el.checked;collectTaskForm();renderTaskModal();}
+    return;
+  }
+  if(el.id==='tm-status'){
+    $('#tm-blockwrap').style.display=el.value==='Blocked'?'':'none';
+    return;
+  }
+});
+
+document.addEventListener('input',e=>{
+  if(e.target.id==='search'){S.search=e.target.value;render();}
+});
+
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  const typing=tag==='input'||tag==='textarea'||tag==='select';
+  // '/' focuses search
+  if(e.key==='/'&&!typing){e.preventDefault();$('#search').focus();$('#search').select();return;}
+  // Ctrl+Z undo (not while typing in a field)
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!typing){e.preventDefault();doUndo();return;}
+  // Esc: cancel modal / inline edit / clear search
+  if(e.key==='Escape'){
+    if(e.target.dataset&&e.target.dataset.renameId){render();return;}
+    if($('#modalRoot').classList.contains('open')){modalCb=null;closeModal();return;}
+    if(e.target.id==='search'){e.target.value='';S.search='';render();e.target.blur();return;}
+    return;
+  }
+  if(e.key==='Enter'){
+    if(e.target.id==='quickAdd'){const v=e.target.value.trim();if(v){quickAdd(v);e.target.value='';}return;}
+    if(e.target.id==='tm-ckadd'){e.preventDefault();const v=e.target.value.trim();if(v){editingDraft.checklist.push({id:uid(),text:v,done:false});collectTaskForm();renderTaskModal();setTimeout(()=>$('#tm-ckadd')&&$('#tm-ckadd').focus(),20);}return;}
+    if(e.target.id==='tm-note'){e.preventDefault();const v=e.target.value.trim();if(v&&editingTaskId){const t=taskById(editingTaskId);addLog(t,v,true);saveTask(t);collectTaskForm();editingDraft.log=JSON.parse(JSON.stringify(t.log));renderTaskModal();setTimeout(()=>$('#tm-note')&&$('#tm-note').focus(),20);}return;}
+    if(e.target.id==='promptInput'){e.preventDefault();const v=e.target.value;const cb=modalCb;modalCb=null;closeModal();if(cb)cb(v);return;}
+    if(e.target.dataset&&e.target.dataset.renameId){
+      const t=taskById(e.target.dataset.renameId);
+      const v=e.target.value.trim();
+      if(t&&v&&v!==t.title){addLog(t,`Renamed "${t.title}" → "${v}"`);t.title=v;saveTask(t);toast(t.id+' renamed');}
+      render();return;
+    }
+  }
+});
+
+/* sort headers */
+document.addEventListener('click',e=>{
+  const th=e.target.closest('th[data-sort]');
+  if(!th)return;
+  const k=th.dataset.sort;
+  if(S.sort.key===k)S.sort.dir*=-1; else S.sort={key:k,dir:1};
+  persistPrefs();render();
+});
+
+/* ================= DRAG & DROP (board) ================= */
+let dragId=null;
+document.addEventListener('dragstart',e=>{
+  const c=e.target.closest&&e.target.closest('[data-card]');
+  if(!c)return;
+  dragId=c.dataset.card;
+  c.classList.add('dragging');
+  e.dataTransfer.setData('text/plain',dragId);
+  e.dataTransfer.effectAllowed='move';
+});
+document.addEventListener('dragend',e=>{
+  const c=e.target.closest&&e.target.closest('[data-card]');
+  if(c)c.classList.remove('dragging');
+  $$('.col.dragover').forEach(x=>x.classList.remove('dragover'));
+});
+document.addEventListener('dragover',e=>{
+  const col=e.target.closest&&e.target.closest('.col');
+  if(!col||!dragId)return;
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  $$('.col.dragover').forEach(x=>{if(x!==col)x.classList.remove('dragover');});
+  col.classList.add('dragover');
+});
+document.addEventListener('dragleave',e=>{
+  const col=e.target.closest&&e.target.closest('.col');
+  if(col&&!col.contains(e.relatedTarget))col.classList.remove('dragover');
+});
+document.addEventListener('drop',e=>{
+  const col=e.target.closest&&e.target.closest('.col');
+  if(!col||!dragId)return;
+  e.preventDefault();
+  const st=col.dataset.col; const id=dragId; dragId=null;
+  col.classList.remove('dragover');
+  requestStatus([id],st);
+});
+
+
+/* ================= EMAIL DROP (Outlook / .eml) ================= */
+let internalDrag=false, extDepth=0;
+document.addEventListener('dragstart',()=>{internalDrag=true;},true);
+document.addEventListener('dragend',()=>{internalDrag=false;},true);
+function isExternalDrag(e){
+  if(dragId||internalDrag)return false;
+  const ts=e.dataTransfer&&e.dataTransfer.types?[...e.dataTransfer.types]:[];
+  return ts.includes('Files')||ts.includes('text/uri-list')||ts.includes('text/html')||ts.includes('text/plain');
+}
+window.addEventListener('dragenter',e=>{
+  if(!isExternalDrag(e))return;
+  e.preventDefault();extDepth++;
+  $('#dropOverlay').classList.add('show');
+});
+window.addEventListener('dragover',e=>{
+  if(!isExternalDrag(e))return;
+  e.preventDefault();e.dataTransfer.dropEffect='copy';
+});
+window.addEventListener('dragleave',e=>{
+  if(dragId||internalDrag)return;
+  extDepth=Math.max(0,extDepth-1);
+  if(extDepth===0)$('#dropOverlay').classList.remove('show');
+});
+window.addEventListener('drop',async e=>{
+  if(dragId||internalDrag){internalDrag=false;return;}
+  extDepth=0;$('#dropOverlay').classList.remove('show');
+  const ext=isExternalDrag(e);
+  e.preventDefault();
+  if(!ext)return;
+  // drop target: existing task card/row, or a board column (sets initial status)
+  const tgt=e.target.closest&&(e.target.closest('[data-card]')||e.target.closest('[data-row]'));
+  const targetTaskId=tgt?(tgt.dataset.card||tgt.dataset.row):null;
+  const colEl=e.target.closest&&e.target.closest('.col');
+  const colStatus=colEl?colEl.dataset.col:null;
+  await handleEmailDrop(e.dataTransfer,targetTaskId,colStatus);
+});
+
+/* ---- MIME decoding helpers ---- */
+function b64Bytes(s){s=s.replace(/[^A-Za-z0-9+/=]/g,'');const bin=atob(s);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+function qpBytes(s){
+  s=s.replace(/=\r?\n/g,'');
+  const out=new Uint8Array(s.length);let n=0;
+  for(let i=0;i<s.length;i++){
+    if(s[i]==='='&&/^[0-9A-Fa-f]{2}$/.test(s.substr(i+1,2))){out[n++]=parseInt(s.substr(i+1,2),16);i+=2;}
+    else out[n++]=s.charCodeAt(i)&0xff;
+  }
+  return out.slice(0,n);
+}
+function decodeBytes(bytes,charset){
+  try{return new TextDecoder((charset||'utf-8').toLowerCase()).decode(bytes);}
+  catch(e){try{return new TextDecoder('utf-8').decode(bytes);}catch(e2){return '';}}
+}
+function decodeMimeWords(s){
+  s=String(s||'').replace(/\?=\s+=\?/g,'?==?'); // adjacent encoded words
+  return s.replace(/=\?([^?]+)\?([BQbq])\?([^?]*)\?=/g,(m,cs,enc,data)=>{
+    try{
+      const bytes=enc.toUpperCase()==='B'?b64Bytes(data):qpBytes(data.replace(/_/g,' '));
+      return decodeBytes(bytes,cs);
+    }catch(e){return m;}
+  });
+}
+function stripHTML(h){
+  try{
+    const doc=new DOMParser().parseFromString(h,'text/html');
+    return (doc.body?doc.body.textContent:'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  }catch(e){return h.replace(/<[^>]+>/g,' ');}
+}
+function decodePart(s,cte,cs){
+  cte=(cte||'').trim().toLowerCase();
+  try{
+    if(cte==='base64')return decodeBytes(b64Bytes(s),cs);
+    if(cte==='quoted-printable')return decodeBytes(qpBytes(s),cs);
+  }catch(e){}
+  return s;
+}
+function headerVal(head,name){
+  const re=new RegExp('^'+name+':[ \\t]*([^\\r\\n]*(?:\\r?\\n[ \\t][^\\r\\n]*)*)','im');
+  const m=head.match(re);
+  return m?m[1].replace(/\r?\n[ \t]+/g,' ').trim():'';
+}
+function extractBody(body,ctFull,cte){
+  const ct=(ctFull||'').split(';')[0].trim();
+  const bm=(ctFull||'').match(/boundary="?([^";\r\n]+)"?/i);
+  if(/^multipart\//i.test(ct)&&bm){
+    const esc2=bm[1].replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const parts=body.split(new RegExp('\\r?\\n--'+esc2+'(?:--)?[ \\t]*(?:\\r?\\n|$)'));
+    let plain=null,html=null;
+    for(const p of parts){
+      const s=p.search(/\r?\n\r?\n/); if(s<0)continue;
+      const ph=p.slice(0,s), pb=p.slice(s).replace(/^\r?\n\r?\n?/,'');
+      const pctFull=headerVal(ph,'content-type');
+      const pcte=headerVal(ph,'content-transfer-encoding');
+      const pcs=(pctFull.match(/charset="?([^";\r\n]+)"?/i)||[])[1]||'utf-8';
+      const pct=pctFull.split(';')[0].trim();
+      if(/^multipart\//i.test(pct)){
+        const inner=extractBody(pb,pctFull,pcte);
+        if(inner&&plain==null)plain=inner;
+      }
+      else if(/^text\/plain/i.test(pct)&&plain==null)plain=decodePart(pb,pcte,pcs);
+      else if(/^text\/html/i.test(pct)&&html==null)html=stripHTML(decodePart(pb,pcte,pcs));
+    }
+    return plain!=null?plain:(html!=null?html:'');
+  }
+  const cs=((ctFull||'').match(/charset="?([^";\r\n]+)"?/i)||[])[1]||'utf-8';
+  const t=decodePart(body,cte,cs);
+  return /^text\/html/i.test(ct)?stripHTML(t):t;
+}
+function parseEML(raw){
+  const sep=raw.search(/\r?\n\r?\n/);
+  const head=sep>-1?raw.slice(0,sep):raw;
+  const body=sep>-1?raw.slice(sep).replace(/^\r?\n\r?\n?/,''):'';
+  const subject=decodeMimeWords(headerVal(head,'subject'))||'(no subject)';
+  const from=decodeMimeWords(headerVal(head,'from'));
+  let date=headerVal(head,'date');
+  const pd=new Date(date); if(!isNaN(pd))date=fmtDT(pd.toISOString());
+  const text=extractBody(body,headerVal(head,'content-type'),headerVal(head,'content-transfer-encoding'));
+  return {subject,from,date,body:String(text||'').trim().slice(0,900)};
+}
+function emailDefaults(info,eml,link){
+  const desc=[info.from?'From: '+info.from:'',info.date?'Date: '+info.date:'','',info.body||''].join('\n').trim();
+  return {title:info.subject||'Email follow-up',description:desc,link:link||'',eml:eml||null};
+}
+const EML_MAX=2*1024*1024;
+function makeEmlAttachment(name,text){
+  if(!text)return null;
+  if(text.length>EML_MAX){toast('Email over 2 MB — details captured, original not stored',true);return null;}
+  return {name,size:text.length,data:text};
+}
+function attachEmailToTask(t,info,eml,link){
+  if(eml)t.eml=eml;
+  if(link&&!t.link)t.link=link;
+  addLog(t,'Email attached: '+(info.subject||eml&&eml.name||link||'email'),true);
+  saveTask(t);
+  toast('Email attached to '+t.id);
+  render();
+}
+function createTaskFromEmail(info,eml,link,status){
+  const d=emailDefaults(info,eml,link);
+  const t={id:nextTid(),project:(S.selProject!=='ALL'&&S.selProject!=='WEEK')?S.selProject:'',
+    title:d.title,description:d.description,link:d.link,eml:d.eml,
+    discipline:'General',category:'Admin',priority:'Medium',status:status&&status!=='Blocked'&&STATUSES.includes(status)?status:'To Do',
+    assignee:'',due:'',created:todayISO(),completed:null,blockedReason:'',recurrence:'',checklist:[],log:[]};
+  addLog(t,'Created from email drop');
+  if(t.status==='Done')t.completed=todayISO();
+  S.tasks.push(t);saveTask(t);
+  return t;
+}
+async function handleEmailDrop(dt,targetTaskId,colStatus){
+  const files=[...(dt.files||[])];
+  const emls=files.filter(f=>/\.eml$/i.test(f.name)||f.type==='message/rfc822');
+  const msgs=files.filter(f=>/\.msg$/i.test(f.name));
+  const target=targetTaskId?taskById(targetTaskId):null;
+  if(emls.length||msgs.length){
+    const parsed=[];
+    for(const f of emls){
+      try{const text=await f.text();parsed.push({info:parseEML(text),eml:makeEmlAttachment(f.name,text)});}
+      catch(err){toast('Could not read '+f.name,true);}
+    }
+    for(const f of msgs){
+      parsed.push({info:{subject:f.name.replace(/\.msg$/i,''),from:'',date:'',body:'(.msg is a binary Outlook file — drag the message from Outlook on the web to get a readable .eml)'},eml:null});
+    }
+    if(!parsed.length)return;
+    if(target){
+      parsed.forEach(p=>attachEmailToTask(target,p.info,p.eml,''));
+      return;
+    }
+    if(parsed.length===1){
+      openTaskModal(null,{...emailDefaults(parsed[0].info,parsed[0].eml,''),status:colStatus&&STATUSES.includes(colStatus)?colStatus:undefined});
+      return;
+    }
+    parsed.forEach(p=>createTaskFromEmail(p.info,p.eml,'',colStatus));
+    toast(parsed.length+' tasks created from emails');
+    render();
+    return;
+  }
+  // string payload — direct drag from an Outlook web tab (browser-dependent)
+  const uri=dt.getData('text/uri-list')||'';
+  const html=dt.getData('text/html')||'';
+  const txt=dt.getData('text/plain')||'';
+  const isUrl=s=>/^https?:\/\/\S+$/i.test(String(s).trim());
+  let link='',subject='';
+  const firstUri=uri.split(/\r?\n/).find(l=>l&&!l.startsWith('#'))||'';
+  if(isUrl(firstUri))link=firstUri.trim();
+  if(!link&&isUrl(txt))link=txt.trim();
+  if(txt&&!isUrl(txt))subject=txt.trim().split(/\r?\n/)[0].slice(0,140);
+  if(html){
+    try{
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      if(!link){const a=doc.querySelector('a[href^="http"]');if(a)link=a.getAttribute('href');}
+      if(!subject)subject=(doc.body?doc.body.textContent:'').trim().split(/\r?\n/)[0].slice(0,140);
+    }catch(e){}
+  }
+  if(!subject&&!link){
+    toast('Nothing usable in that drop — drag the message to your desktop first, then drop the .eml file here',true);
+    return;
+  }
+  const info={subject:subject||'Email follow-up',from:'',date:'',body:''};
+  if(target){attachEmailToTask(target,info,null,link);return;}
+  openTaskModal(null,{...emailDefaults(info,null,link),status:colStatus&&STATUSES.includes(colStatus)?colStatus:undefined});
+}
+
+
+
+/* ================= SETTINGS MODAL ================= */
+function openSettingsModal(){
+  openModal(`<div class="modal narrow">
+    <div class="modal-head"><span class="hdr">Settings</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
+    <div class="modal-body">
+      <div class="subhdr" style="margin-top:0">Export</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" data-action="csv-tasks">CSV — All Tasks</button>
+        <button class="btn sm" data-action="csv-projects">CSV — Projects</button>
+        <button class="btn sm" data-action="csv-week">CSV — Weekly Report (current view)</button>
+      </div>
+      <div class="subhdr">Import</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" data-action="csv-import">Import CSV (tasks or projects)</button>
+      </div>
+      <div class="subhdr">Backup</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" data-action="backup">Backup to JSON</button>
+        <button class="btn sm danger" data-action="restore">Restore from JSON</button>
+      </div>
+      <div class="subhdr">Devices</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn sm" data-action="sync-settings">Device Sync&hellip;</button>
+        <span class="mono" style="font-size:10px;color:var(--dim2)">${sync.enabled?'enabled':'off'}${sync.gistId?' · gist '+esc(sync.gistId.slice(0,8))+'…':''}</span>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-action="modal-cancel">Close</button></div>
+  </div>`);
+}
+
+/* ================= DEVICE SYNC (GitHub Gist) ================= */
+const SYNC_FILE='taskhub-data.json';
+let sync={enabled:false,token:'',gistId:''};
+let syncApplying=false, dirtyTimer=null, localUpdated=0, lastPullAt=0;
+function markDirty(){
+  if(syncApplying)return;
+  localUpdated=Date.now();saveMeta('localUpdated',localUpdated);
+  if(!sync.enabled||!sync.token)return;
+  clearTimeout(dirtyTimer);dirtyTimer=setTimeout(pushSync,2500);
+}
+function persistSyncCfg(){saveMeta('sync',{enabled:sync.enabled,token:sync.token,gistId:sync.gistId});}
+function setSyncStatus(st,cls){const el=$('#syncStat');if(el){el.textContent=st?'SYNC '+st.toUpperCase():'';el.className=cls||'';}}
+function syncPayload(){
+  return JSON.stringify({app:'taskhub-pro',schema:1,updated:localUpdated,counters,
+    projects:S.projects,
+    tasks:S.tasks.map(t=>{
+      if(!t.eml)return t;
+      const c={...t};c.eml=null;c.emlLocal={name:t.eml.name,size:t.eml.size};return c;
+    })});
+}
+async function gh(path,method,body){
+  const r=await fetch('https://api.github.com'+path,{
+    method:method||'GET',
+    headers:{'Authorization':'Bearer '+sync.token,'Accept':'application/vnd.github+json'},
+    body:body?JSON.stringify(body):undefined});
+  if(!r.ok)throw new Error('GitHub '+r.status+(r.status===401?' — check token':r.status===404?' — gist not found':''));
+  return r.json();
+}
+async function pushSync(){
+  if(!sync.enabled||!sync.token)return;
+  clearTimeout(dirtyTimer);dirtyTimer=null;
+  try{
+    setSyncStatus('push\u2026');
+    const files={};files[SYNC_FILE]={content:syncPayload()};
+    if(!sync.gistId){
+      const g=await gh('/gists','POST',{description:'TaskHub Pro sync data',public:false,files});
+      sync.gistId=g.id;persistSyncCfg();
+      toast('Sync gist created: '+g.id);
+      const gi=$('#sy-gist');if(gi)gi.value=g.id;
+    }else{
+      await gh('/gists/'+sync.gistId,'PATCH',{files});
+    }
+    setSyncStatus('ok','ok');
+  }catch(e){setSyncStatus('error','error');toast('Sync push failed: '+e.message,true);}
+}
+async function pullSync(manual){
+  if(!sync.enabled||!sync.token)return;
+  if(!sync.gistId){if(manual)toast('No gist yet — push once to create it',true);return;}
+  if(!manual&&Date.now()-lastPullAt<15000)return; // don't hammer on rapid focus flips
+  lastPullAt=Date.now();
+  try{
+    setSyncStatus('pull\u2026');
+    const g=await gh('/gists/'+sync.gistId);
+    const f=g.files&&g.files[SYNC_FILE];
+    if(!f){setSyncStatus('ok','ok');return;}
+    let content=f.content;
+    if(f.truncated){const r=await fetch(f.raw_url);content=await r.text();}
+    const data=JSON.parse(content);
+    if(!data||data.app!=='taskhub-pro'||!Array.isArray(data.tasks)){setSyncStatus('error','error');if(manual)toast('Gist content not recognised',true);return;}
+    if((data.updated||0)>localUpdated){
+      applyRemote(data);
+      toast('Pulled changes from sync');
+    }else if(localUpdated>(data.updated||0)){
+      pushSync();return;
+    }
+    setSyncStatus('ok','ok');
+  }catch(e){setSyncStatus('error','error');if(manual)toast('Sync pull failed: '+e.message,true);}
+}
+function applyRemote(data){
+  syncApplying=true;
+  try{
+    const localEml=new Map(S.tasks.filter(t=>t.eml).map(t=>[t.id,t.eml]));
+    S.projects=data.projects||[];
+    S.tasks=(data.tasks||[]).map(t=>{
+      if(!t.eml&&t.emlLocal&&localEml.has(t.id))t.eml=localEml.get(t.id);
+      return t;
+    });
+    if(data.counters&&typeof data.counters.t==='number')counters=data.counters;
+    idbClear('projects');idbClear('tasks');
+    S.projects.forEach(p=>idbPut('projects',p));
+    S.tasks.forEach(t=>idbPut('tasks',t));
+    persistCounters();
+    localUpdated=data.updated||Date.now();saveMeta('localUpdated',localUpdated);
+    if(S.selProject!=='ALL'&&S.selProject!=='WEEK'&&!projById(S.selProject)){S.selProject='ALL';persistPrefs();}
+    S.selected.clear();
+  }finally{syncApplying=false;}
+  render();
+  setSyncStatus('ok','ok');
+}
+function openSyncModal(){
+  openModal(`<div class="modal narrow">
+    <div class="modal-head"><span class="hdr">Device Sync</span><button class="modal-x" data-action="modal-cancel">&times;</button></div>
+    <div class="modal-body">
+      <div class="syncNote">Syncs projects and tasks between devices through a <b>private GitHub gist</b>. Every change pushes after a short delay; opening or refocusing the app pulls. Newest change wins. Attached .eml files stay on the device they were dropped on.<br><br>Create a <b>fine-grained personal access token</b> with only the <b>Gists</b> read/write permission (github.com &rarr; Settings &rarr; Developer settings). The token is stored in this browser only.</div>
+      <div class="frm">
+        <div class="fld full"><label>GitHub Token</label><input id="sy-token" type="password" value="${esc(sync.token)}" placeholder="github_pat_&hellip;" autocomplete="off"></div>
+        <div class="fld full"><label>Gist ID (blank = create on first push)</label><input id="sy-gist" type="text" value="${esc(sync.gistId)}" placeholder="e.g. 4f2a9c&hellip; — paste the same ID on your other devices"></div>
+        <div class="fld full"><label class="chk ${sync.enabled?'on':''}" style="width:max-content"><input type="checkbox" id="sy-enabled" ${sync.enabled?'checked':''}>ENABLE SYNC</label></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-action="sync-pull-now">Pull Now</button>
+      <button class="btn" data-action="sync-push-now">Push Now</button>
+      <span class="spacer"></span>
+      <button class="btn" data-action="modal-cancel">Cancel</button>
+      <button class="btn accent" data-action="sync-save">Save</button>
+    </div></div>`);
+}
+function readSyncForm(){
+  sync.token=($('#sy-token')?$('#sy-token').value:sync.token).trim();
+  sync.gistId=($('#sy-gist')?$('#sy-gist').value:sync.gistId).trim();
+  sync.enabled=$('#sy-enabled')?$('#sy-enabled').checked:sync.enabled;
+  persistSyncCfg();
+}
+window.addEventListener('focus',()=>pullSync(false));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pullSync(false);});
+
+/* ================= INIT ================= */
+(async function init(){
+  await openDB();
+  if(memMode)banner();
+  const [projects,tasks,meta]=await Promise.all([idbAll('projects'),idbAll('tasks'),idbAll('meta')]);
+  S.projects=projects; S.tasks=tasks;
+  const m=Object.fromEntries(meta.map(x=>[x.k,x.v]));
+  if(m.counters)counters=m.counters;
+  else{
+    counters={p:Math.max(0,...S.projects.map(p=>+String(p.id).replace(/\D/g,'')||0)),
+              t:Math.max(0,...S.tasks.map(t=>+String(t.id).replace(/\D/g,'')||0))};
+  }
+  if(m.sync)Object.assign(sync,m.sync);
+  if(m.localUpdated)localUpdated=m.localUpdated;
+  if(m.prefs){
+    if(['board','list','dashboard'].includes(m.prefs.view))S.view=m.prefs.view;
+    if(m.prefs.selProject&&(m.prefs.selProject==='ALL'||m.prefs.selProject==='WEEK'||projById(m.prefs.selProject)))S.selProject=m.prefs.selProject;
+    S.sidebarCollapsed=!!m.prefs.sidebarCollapsed;
+    if(m.prefs.sort&&m.prefs.sort.key)S.sort=m.prefs.sort;
+  }
+  render();
+  if(sync.enabled&&sync.token){setSyncStatus('on');pullSync(false);}
+})();
+</script>
+</body>
+</html>
