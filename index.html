@@ -225,6 +225,18 @@ td .ckl{font-family:var(--font-mono);font-size:10px;color:var(--dim)}
 #devPanel{display:none;gap:6px;align-items:center}
 #devPanel.show{display:flex}
 
+/* ============ SNIPS ============ */
+.snipGrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.snipThumb{width:104px;height:74px;object-fit:cover;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:#000}
+.snipThumb:hover{border-color:var(--accent)}
+.snipArmed{font-family:var(--font-mono);font-size:10px;color:var(--accent-text)}
+#lightbox{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:#000000d9}
+#lightbox.show{display:flex}
+.lb-inner{display:flex;flex-direction:column;gap:8px;max-width:94vw}
+#lbImg{max-width:94vw;max-height:78vh;border:1px solid var(--border2);border-radius:4px;background:#000}
+.lb-bar{display:flex;gap:8px;align-items:center}
+#lbName{font-size:10px;color:var(--dim)}
+
 /* ============ MOBILE ============ */
 #navBtn{display:none}
 .sb-backdrop{display:none}
@@ -337,6 +349,14 @@ td .ckl{font-family:var(--font-mono);font-size:10px;color:var(--dim)}
 <div id="dropOverlay"><div class="box">
   <div class="big">Drop Email</div>
   <div class="sub">.eml file or message dragged from Outlook on the web<br>Drop on a card to attach to that task · anywhere else creates a new task</div>
+</div></div>
+<div id="lightbox" data-action="lb-close"><div class="lb-inner">
+  <img id="lbImg" alt="Snip">
+  <div class="lb-bar"><span id="lbName" class="mono"></span><span style="flex:1"></span>
+    <button class="btn sm" data-action="lb-download">Download</button>
+    <button class="btn sm danger" data-action="lb-remove">Remove</button>
+    <button class="btn sm" data-action="lb-close">Close</button>
+  </div>
 </div></div>
 <script>
 'use strict';
@@ -631,7 +651,7 @@ function toast(msg,err){
 
 /* ================= MODAL INFRASTRUCTURE ================= */
 function openModal(html){const r=$('#modalRoot');r.innerHTML=html;r.classList.add('open');}
-function closeModal(){const r=$('#modalRoot');r.classList.remove('open');r.innerHTML='';}
+function closeModal(){const r=$('#modalRoot');r.classList.remove('open');r.innerHTML='';disarmSnip();}
 let modalCb=null;
 function confirmModal(title,msg,buttons){ // buttons: [{label, cls, val}]
   return new Promise(res=>{
@@ -709,6 +729,7 @@ function cardHTML(t){
       ${ck.length?`<span class="ck ${done===ck.length?'full':''}">☑ ${done}/${ck.length}</span>`:''}
       ${t.assignee?`<span class="ck">@${esc(t.assignee)}</span>`:''}
       ${t.link?`<a class="mailchip" draggable="false" href="${esc(t.link)}" target="_blank" rel="noopener" title="Open linked email">\u2709</a>`:(t.eml?`<span class="mailchip" title="Email attached: ${esc(t.eml.name)}">\u2709</span>`:'')}
+      ${t.snips&&t.snips.length?`<span class="mailchip" data-action="open-task" data-id="${t.id}" title="${t.snips.length} snip(s) attached">\ud83d\udcf7 ${t.snips.length}</span>`:''}
     </div>
     ${t.status==='Blocked'&&t.blockedReason?`<div class="breason" title="${esc(t.blockedReason)}">⛔ ${esc(t.blockedReason)}</div>`:''}
   </div>`;
@@ -754,7 +775,8 @@ function renderList(list){
       <td><span class="tttl" data-action="open-task" data-id="${t.id}" data-editable="title" title="Click to open · double-click to rename">${esc(t.title)}</span>
         ${t.status==='Blocked'&&t.blockedReason?`<span class="chip s-Blocked" title="${esc(t.blockedReason)}">⛔</span>`:''}
         ${t.recurrence?`<span class="chip rec" title="Recurring ${t.recurrence}">↻</span>`:''}
-        ${t.link?`<a class="mailchip" href="${esc(t.link)}" target="_blank" rel="noopener" title="Open linked email">\u2709</a>`:(t.eml?`<span class="mailchip" title="Email attached: ${esc(t.eml.name)}">\u2709</span>`:'')}</td>
+        ${t.link?`<a class="mailchip" href="${esc(t.link)}" target="_blank" rel="noopener" title="Open linked email">\u2709</a>`:(t.eml?`<span class="mailchip" title="Email attached: ${esc(t.eml.name)}">\u2709</span>`:'')}
+        ${t.snips&&t.snips.length?`<span class="mailchip" data-action="open-task" data-id="${t.id}" title="${t.snips.length} snip(s) attached">\ud83d\udcf7</span>`:''}</td>
       <td><span class="jn">${esc(projLabel(t.project))}</span></td>
       <td><span class="chip disc">${esc(t.discipline)}</span></td>
       <td style="font-size:11px;color:var(--dim)">${esc(t.category)}</td>
@@ -859,7 +881,7 @@ function openTaskModal(id,defaults){
   editingDraft=t?JSON.parse(JSON.stringify(t)):{
     id:'(new)',project:defaults&&defaults.project||((S.selProject!=='ALL'&&S.selProject!=='WEEK')?S.selProject:''),
     title:defaults&&defaults.title||'',description:defaults&&defaults.description||'',
-    link:defaults&&defaults.link||'',eml:defaults&&defaults.eml||null,
+    link:defaults&&defaults.link||'',eml:defaults&&defaults.eml||null,snips:[],
     discipline:'General',category:'Admin',priority:'Medium',status:defaults&&defaults.status||'To Do',
     assignee:'',due:'',created:todayISO(),completed:null,blockedReason:'',recurrence:'',checklist:[],log:[]};
   renderTaskModal();
@@ -891,6 +913,12 @@ function renderTaskModal(){
         <span class="txt ${c.done?'done':''}">${esc(c.text)}</span>
         <button class="rm" data-action="ck-remove" data-ck="${c.id}" title="Remove item">✕</button></div>`).join('')||'<div class="mono" style="font-size:10px;color:var(--dim2)">No sub-items</div>'}</div>
       <div class="ckAddRow"><input id="tm-ckadd" type="text" placeholder="Add sub-item (Enter)"><button class="btn sm" data-action="ck-add">Add</button></div>
+      <div class="subhdr">Snips</div>
+      <div class="snipGrid">${(d.snips||[]).map(sn=>`<img class="snipThumb" src="${sn.data}" data-action="snip-view" data-snip="${sn.id}" title="${esc(sn.name)} — click to view">`).join('')||'<div class="mono" style="font-size:10px;color:var(--dim2)">No snips</div>'}</div>
+      <div class="ckAddRow" style="align-items:center">
+        <button class="btn sm ${snipArmed?'accent':''}" data-action="snip-add">${snipArmed?'\u25cf Waiting — press Win+Shift+S (click to stop)':'+ Add Snip (Win+Shift+S)'}</button>
+        <span class="mono" style="font-size:10px;color:var(--dim2)">or Ctrl+V to paste an image</span>
+      </div>
       ${editingTaskId?`<div class="subhdr">Activity Log</div>
       <div class="logList">${(d.log||[]).slice().reverse().map(l=>`<div class="logItem"><span class="t">${fmtDT(l.t)}</span> — <span class="${l.m?'manual':''}">${esc(l.text)}</span></div>`).join('')||'<div class="logItem">No activity</div>'}</div>
       <div class="ckAddRow"><input id="tm-note" type="text" placeholder="Add note to activity log (Enter)"><button class="btn sm" data-action="note-add">Note</button></div>
@@ -933,7 +961,7 @@ function saveTaskModal(){
     }
     Object.assign(t,{title:d.title,description:d.description,project:d.project,assignee:d.assignee,
       discipline:d.discipline,category:d.category,priority:d.priority,due:d.due,recurrence:d.recurrence,
-      checklist:d.checklist,link:d.link,eml:d.eml||null});
+      checklist:d.checklist,link:d.link,eml:d.eml||null,snips:d.snips||[]});
     if(changes.length)addLog(t,'Edited: '+changes.join(', '));
     if(oldStatus!==d.status){applyStatus(t,d.status,d.blockedReason);}
     else if(d.status==='Blocked'){t.blockedReason=d.blockedReason;}
@@ -1193,6 +1221,24 @@ document.addEventListener('click',e=>{
     case 'eml-remove':{
       if(editingDraft){collectTaskForm();editingDraft.eml=null;renderTaskModal();}
       break;}
+    case 'snip-add':armSnip();break;
+    case 'snip-view':openLightbox(el.dataset.snip);break;
+    case 'lb-close':$('#lightbox').classList.remove('show');lbSnipId=null;break;
+    case 'lb-download':{
+      const sn=editingDraft&&(editingDraft.snips||[]).find(x=>x.id===lbSnipId);
+      if(sn)saveFile(sn.name,dataURLToBlob(sn.data),'image/png','PNG image','.png');
+      break;}
+    case 'lb-remove':{
+      if(editingDraft&&lbSnipId){
+        collectTaskForm();
+        editingDraft.snips=(editingDraft.snips||[]).filter(x=>x.id!==lbSnipId);
+        if(editingTaskId){
+          const t=taskById(editingTaskId);
+          if(t&&t.snips){const rm=t.snips.find(x=>x.id===lbSnipId);t.snips=t.snips.filter(x=>x.id!==lbSnipId);if(rm)addLog(t,'Snip removed: '+rm.name);saveTask(t);}
+        }
+        $('#lightbox').classList.remove('show');lbSnipId=null;renderTaskModal();
+      }
+      break;}
     case 'modal-cancel':{const cb=modalCb;modalCb=null;closeModal();if(cb&&cb.length===0){}else if(cb&&typeof cb==='function'&&cb!==saveTaskModal){try{cb(null);}catch(_){}}break;}
     case 'modal-choice':{const cb=modalCb;modalCb=null;closeModal();if(cb)cb(el.dataset.val);break;}
     case 'prompt-ok':{const v=$('#promptInput')?$('#promptInput').value:'';const cb=modalCb;modalCb=null;closeModal();if(cb)cb(v);break;}
@@ -1308,6 +1354,7 @@ document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!typing){e.preventDefault();doUndo();return;}
   // Esc: cancel modal / inline edit / clear search
   if(e.key==='Escape'){
+    if($('#lightbox').classList.contains('show')){$('#lightbox').classList.remove('show');lbSnipId=null;return;}
     if(e.target.dataset&&e.target.dataset.renameId){render();return;}
     if($('#modalRoot').classList.contains('open')){modalCb=null;closeModal();return;}
     if(e.target.id==='search'){e.target.value='';S.search='';render();e.target.blur();return;}
@@ -1575,6 +1622,80 @@ async function handleEmailDrop(dt,targetTaskId,colStatus){
 
 
 
+
+/* ================= SNIPS (clipboard capture) ================= */
+let snipArmed=false, snipBaseSig=null, snipArmTimer=null, snipInterval=null, lbSnipId=null;
+function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b);});}
+function dataURLToBlob(u){const i=u.indexOf(',');const mime=(u.slice(0,i).match(/data:([^;]+)/)||[])[1]||'image/png';const bin=atob(u.slice(i+1));const a=new Uint8Array(bin.length);for(let j=0;j<bin.length;j++)a[j]=bin.charCodeAt(j);return new Blob([a],{type:mime});}
+async function blobSig(b){const buf=new Uint8Array(await b.slice(0,64).arrayBuffer());let h='';for(const x of buf)h+=x.toString(16);return b.size+':'+h;}
+async function grabClipboardImage(){
+  const items=await navigator.clipboard.read();
+  for(const it of items){
+    const t=(it.types||[]).find(x=>x.startsWith('image/'));
+    if(t)return await it.getType(t);
+  }
+  return null;
+}
+async function armSnip(){
+  if(snipArmed){disarmSnip();if($('#tm-title')){collectTaskForm();renderTaskModal();}return;}
+  if(!navigator.clipboard||!navigator.clipboard.read){
+    toast('Clipboard auto-grab not available here (needs HTTPS) — press Win+Shift+S then Ctrl+V to paste',true);return;
+  }
+  try{
+    const b=await grabClipboardImage(); // triggers the permission prompt on first use
+    snipBaseSig=b?await blobSig(b):null;
+  }catch(e){
+    if(e&&e.name==='NotAllowedError'){toast('Clipboard permission denied — press Win+Shift+S then Ctrl+V to paste instead',true);return;}
+    snipBaseSig=null;
+  }
+  snipArmed=true;
+  clearTimeout(snipArmTimer);
+  snipArmTimer=setTimeout(()=>{disarmSnip();if($('#tm-title')){collectTaskForm();renderTaskModal();}},120000);
+  clearInterval(snipInterval);snipInterval=setInterval(checkSnip,1200);
+  collectTaskForm();renderTaskModal();
+  toast('Armed — press Win+Shift+S, the snip attaches when you release it');
+}
+function disarmSnip(){snipArmed=false;snipBaseSig=null;clearTimeout(snipArmTimer);clearInterval(snipInterval);snipInterval=null;}
+async function checkSnip(){
+  if(!snipArmed||!editingDraft||!document.hasFocus())return;
+  let b=null;
+  try{b=await grabClipboardImage();}catch(e){return;}
+  if(!b)return;
+  const sig=await blobSig(b);
+  if(sig===snipBaseSig)return;
+  snipBaseSig=sig;
+  await attachSnipToDraft(b);
+}
+async function attachSnipToDraft(blob){
+  if(!editingDraft)return;
+  if(blob.size>4*1024*1024){toast('Snip over 4 MB — not attached',true);return;}
+  const dataUrl=await blobToDataURL(blob);
+  editingDraft.snips=editingDraft.snips||[];
+  const sn={id:uid(),name:'snip-'+todayISO()+'-'+String(editingDraft.snips.length+1).padStart(2,'0')+'.png',type:blob.type||'image/png',size:blob.size,data:dataUrl};
+  editingDraft.snips.push(sn);
+  if(editingTaskId){
+    const t=taskById(editingTaskId);
+    if(t){t.snips=t.snips||[];t.snips.push(JSON.parse(JSON.stringify(sn)));addLog(t,'Snip attached: '+sn.name);saveTask(t);}
+  }
+  if($('#tm-title')){collectTaskForm();renderTaskModal();}
+  toast('Snip attached ('+Math.round(blob.size/1024)+' KB)'+(snipArmed?' — still armed for the next one':''));
+}
+function openLightbox(id){
+  const sn=editingDraft&&(editingDraft.snips||[]).find(x=>x.id===id);
+  if(!sn)return;
+  lbSnipId=id;
+  $('#lbImg').src=sn.data;
+  $('#lbName').textContent=sn.name+' \u00b7 '+Math.round(sn.size/1024)+' KB';
+  $('#lightbox').classList.add('show');
+}
+window.addEventListener('focus',()=>{if(snipArmed)setTimeout(checkSnip,150);});
+document.addEventListener('paste',e=>{
+  if(!$('#tm-title')||!editingDraft)return; // task modal only
+  const items=[...((e.clipboardData&&e.clipboardData.items)||[])];
+  const img=items.find(i=>i.type&&i.type.startsWith('image/'));
+  if(img){e.preventDefault();const f=img.getAsFile();if(f)attachSnipToDraft(f);}
+});
+
 /* ================= SETTINGS MODAL ================= */
 function openSettingsModal(){
   openModal(`<div class="modal narrow">
@@ -1621,8 +1742,12 @@ function syncPayload(){
   return JSON.stringify({app:'taskhub-pro',schema:1,updated:localUpdated,counters,
     projects:S.projects,
     tasks:S.tasks.map(t=>{
-      if(!t.eml)return t;
-      const c={...t};c.eml=null;c.emlLocal={name:t.eml.name,size:t.eml.size};return c;
+      const hasSnips=t.snips&&t.snips.length;
+      if(!t.eml&&!hasSnips)return t;
+      const c={...t};
+      if(t.eml){c.eml=null;c.emlLocal={name:t.eml.name,size:t.eml.size};}
+      if(hasSnips){c.snips=null;c.snipsLocal=t.snips.length;}
+      return c;
     })});
 }
 async function gh(path,method,body){
@@ -1683,9 +1808,11 @@ function applyRemote(data){
   syncApplying=true;
   try{
     const localEml=new Map(S.tasks.filter(t=>t.eml).map(t=>[t.id,t.eml]));
+    const localSnips=new Map(S.tasks.filter(t=>t.snips&&t.snips.length).map(t=>[t.id,t.snips]));
     S.projects=data.projects||[];
     S.tasks=(data.tasks||[]).map(t=>{
       if(!t.eml&&t.emlLocal&&localEml.has(t.id))t.eml=localEml.get(t.id);
+      if((!t.snips||!t.snips.length)&&t.snipsLocal&&localSnips.has(t.id))t.snips=localSnips.get(t.id);
       return t;
     });
     if(data.counters&&typeof data.counters.t==='number')counters=data.counters;
